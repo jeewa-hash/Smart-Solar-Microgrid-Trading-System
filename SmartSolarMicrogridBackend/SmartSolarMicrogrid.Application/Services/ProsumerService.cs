@@ -10,7 +10,7 @@ public class ProsumerService : IProsumerService {
     private readonly ProsumerRepository _pros; private readonly UserRepository _users; private readonly PasswordHasher _hasher;
     public ProsumerService(ProsumerRepository pros,UserRepository users,PasswordHasher hasher){_pros=pros;_users=users;_hasher=hasher;}
     public async Task<Prosumer> RegisterAsync(CreateProsumerDto dto){
-        Validation.Required(dto.NIC,"NIC"); Validation.Required(dto.Username,"Username"); Validation.Required(dto.Password,"Password");
+        Validation.Required(dto.NIC,"NIC"); Validation.NIC(dto.NIC); Validation.Required(dto.Username,"Username"); Validation.Required(dto.Password,"Password");
         if((await _pros.GetAllAsync()).Any(x=>x.NIC.Equals(dto.NIC,StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("NIC already exists.");
         if((await _users.GetAllAsync()).Any(x=>x.Username.Equals(dto.Username,StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Username already exists.");
         var user=new User{Id=Guid.NewGuid().ToString(),Username=dto.Username,PasswordHash=_hasher.Hash(dto.Password),Role=UserRole.Prosumer,Status=UserStatus.Pending};
@@ -25,7 +25,7 @@ public class ProsumerService : IProsumerService {
         await _pros.ReplaceAsync(p.Id,p);return p;
     }
     public async Task<Prosumer> RequestDeactivationAsync(string nic)=>await SetStatusAsync(nic,"deactivate-request");
-    public async Task<IReadOnlyList<Prosumer>> GetPendingAsync()=>(await _pros.GetAllAsync()).Where(x=>x.AccountStatus==UserStatus.Pending).ToList();
+    public async Task<IReadOnlyList<Prosumer>> GetAllAsync() => (await _pros.GetAllAsync()).OrderByDescending(p=>p.CreatedAt).ToList(); public async Task<IReadOnlyList<Prosumer>> GetPendingAsync()=>(await _pros.GetAllAsync()).Where(x=>x.AccountStatus==UserStatus.Pending).ToList();
     public async Task<Prosumer> SetStatusAsync(string nic,string action){
         var p=await GetByNicAsync(nic) ?? throw new KeyNotFoundException("Prosumer not found.");
         var user=await _users.GetByIdAsync(p.UserId) ?? throw new KeyNotFoundException("User not found.");

@@ -55,7 +55,33 @@ function UserMgmt() {
     return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value={0}>Backoffice</option><option value={1}>Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value={0}>Active</option><option value={1}>Inactive</option></select></label><div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === 0 ? "Backoffice" : "Grid Operator"}</td><td>{u.status === 0 ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button style={{marginRight:"5px",padding:"4px 8px"}} onClick={() => startEdit(u)}>Edit</button><button style={{background:"#ef4444",padding:"4px 8px"}} onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
 }
 
-function Pros(){const[a,setA]=useState([]);const load=()=>api.get("/prosumers/pending").then(x=>setA(x.data));useEffect(()=>{load();},[]);const act=async(n)=>{await api.put(`/prosumers/${n}/activate`);load()};return <><Title t="Prosumer Management" d="Pending registration and account lifecycle"/><Table><h2>Pending Account Requests</h2><table><thead><tr><th>NIC</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th/></tr></thead><tbody>{a.map(p=><tr key={p.id}><td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td><td><span className="badge">{p.accountStatus}</span></td><td><button onClick={()=>act(p.nic)}>Activate</button></td></tr>)}</tbody></table>{!a.length&&<p className="empty">No pending requests.</p>}</Table></>}
+function Pros(){
+    const [a, setA] = useState([]), [st, setSt] = useState("Pending");
+    const load = () => api.get("/prosumers/all").then(x => setA(x.data)).catch(() => {});
+    useEffect(() => { load(); }, []);
+    const act = async (n, action) => { await api.put(`/prosumers/${n}/${action}`); load(); };
+    const filtered = a.filter(p => st === "Pending" ? p.accountStatus === 0 : st === "Active" ? p.accountStatus === 1 : p.accountStatus === 2);
+    return <><Title t="Prosumer Management" d="Manage prosumer profiles and lifecycle" /><Table>
+        <div className="tabs">
+            <button className={st === "Pending" ? "selected" : ""} onClick={() => setSt("Pending")}>Pending</button>
+            <button className={st === "Active" ? "selected" : ""} onClick={() => setSt("Active")}>Active</button>
+            <button className={st === "Inactive" ? "selected" : ""} onClick={() => setSt("Inactive")}>Deactivated</button>
+        </div>
+        <table>
+            <thead><tr><th>NIC</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>{filtered.map(p => <tr key={p.id}>
+                <td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td>
+                <td><span className="badge">{p.accountStatus === 0 ? "Pending" : p.accountStatus === 1 ? "Active" : "Inactive"}</span></td>
+                <td>
+                    {st === "Pending" && <button onClick={() => act(p.nic, "activate")}>Activate</button>}
+                    {st === "Active" && <button style={{ background: "#ef4444" }} onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
+                    {st === "Inactive" && <button onClick={() => act(p.nic, "reactivate")}>Reactivate</button>}
+                </td>
+            </tr>)}</tbody>
+        </table>
+        {!filtered.length && <p className="empty">No {st.toLowerCase()} prosumers found.</p>}
+    </Table></>;
+}
 
 function Stations() {
     const [a, setA] = useState([]), [edit, setEdit] = useState(null), [err, setErr] = useState("");
@@ -108,7 +134,40 @@ function Stations() {
     return <><Title t="Microgrid Nodes" d="Register and manage solar grid hubs" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Update" : "Register"} Station</h2>{err && <div className="err">{err}</div>}{formFields.map(k => <label key={k}>{k}<input required value={f[k] || ''} type={["latitude", "longitude", "capacityKw", "batterySlotAvailability"].includes(k) ? "number" : k.startsWith("schedule") ? "time" : "text"} min={getMin(k)} max={getMax(k)} step={getStep(k)} disabled={k === "nodeCode" && !!edit} onChange={e => setF({ ...f, [k]: e.target.value })} /></label>)}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}> {edit ? "Update" : "Create Node"} </button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Registered Nodes</h2><table><thead><tr><th>Code</th><th>Name</th><th>GPS</th><th>Capacity</th><th>Battery</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(x => <tr key={x.id}><td>{x.nodeCode}</td><td>{x.nodeName}</td><td>{x.latitude},{x.longitude}</td><td>{x.capacityKw} kW</td><td>{x.batterySlotAvailability}</td><td>{x.status === 0 ? "Active" : "Inactive"}</td><td><button style={{ marginRight: "5px", padding: "4px 8px" }} onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>{x.status === 0 && <button style={{ background: "#f59e0b", padding: "4px 8px" }} onClick={() => deact(x.id)}>Deactivate</button>}</td></tr>)}</tbody></table></Table></div></>;
 }
 
-function Slots(){const[f,setF]=useState({nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:""}),[nodes,setN]=useState([]),[a,setA]=useState([]);const load=()=>Promise.all([api.get("/microgrid-nodes?activeOnly=true"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});useEffect(()=>{load();},[]);async function go(e){e.preventDefault();await api.post("/energy-slots",{...f,energyAmountKwh:+f.energyAmountKwh,slotDate:new Date(f.slotDate).toISOString()});load()}return <><Title t="Energy Slots" d="Create and monitor trading slots"/><div className="grid2"><form className="card" onSubmit={go}><h2>Create Energy Slot</h2><label>Node<select required value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}><option value="">Select</option>{nodes.map(n=><option value={n.id} key={n.id}>{n.nodeCode} — {n.nodeName}</option>)}</select></label><label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label><label>Start<input type="time" value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label><label>End<input type="time" value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label><label>Energy kWh<input required type="number" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label><button>Create Slot</button></form><Table><h2>Energy Slots</h2><table><thead><tr><th>Date</th><th>Node</th><th>Time</th><th>Total</th><th>Available</th><th>Status</th></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{new Date(s.slotDate).toLocaleDateString()}</td><td>{nodes.find(n=>n.id===s.nodeId)?.nodeCode||s.nodeId}</td><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td></tr>)}</tbody></table></Table></div></>}
+function Slots(){
+    const empty = {nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:"",availableCapacityKwh:"",status:"Available"};
+    const [f,setF]=useState(empty),[nodes,setN]=useState([]),[a,setA]=useState([]),[edit,setEdit]=useState(null),[err,setErr]=useState("");
+    const load=()=>Promise.all([api.get("/microgrid-nodes?activeOnly=true"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});
+    useEffect(()=>{load();},[]);
+    async function go(e){
+        e.preventDefault();
+        try {
+            const b = {...f, energyAmountKwh: +f.energyAmountKwh, slotDate: new Date(f.slotDate).toISOString()};
+            if (edit) {
+                b.availableCapacityKwh = +f.availableCapacityKwh;
+                b.status = f.status.toString();
+                await api.put(`/energy-slots/${edit}`, b);
+            } else {
+                await api.post("/energy-slots", b);
+            }
+            setEdit(null); setF(empty); setErr(""); load();
+        } catch(x) { setErr(x.response?.data?.error || "Failed to save slot. Check inputs."); }
+    }
+    function startEdit(s) {
+        const statuses = ["Available", "Reserved", "Unavailable", "Completed"];
+        setEdit(s.id);
+        setF({
+            nodeId: s.nodeId,
+            slotDate: new Date(s.slotDate).toISOString().split('T')[0],
+            startTime: s.startTime,
+            endTime: s.endTime,
+            energyAmountKwh: s.energyAmountKwh,
+            availableCapacityKwh: s.availableCapacityKwh,
+            status: typeof s.status === 'number' ? statuses[s.status] : s.status
+        });
+        setErr("");
+    }
+    return <><Title t="Energy Slots" d="Create and monitor trading slots"/><div className="grid2"><form className="card" onSubmit={go}><h2>{edit ? "Edit Energy Slot" : "Create Energy Slot"}</h2>{err && <div className="err">{err}</div>}<label>Node<select required disabled={!!edit} value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}><option value="">Select</option>{nodes.map(n=><option value={n.id} key={n.id}>{n.nodeCode} — {n.nodeName}</option>)}</select></label><label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label><label>Start<input type="time" required value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label><label>End<input type="time" required value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label><label>Total Energy (kWh)<input required type="number" min="0.1" step="0.1" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label>{edit && <><label>Available (kWh)<input required type="number" min="0" step="0.1" max={f.energyAmountKwh} value={f.availableCapacityKwh} onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}/></label><label>Status<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="Available">Available</option><option value="Unavailable">Unavailable</option></select></label></>}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update Slot" : "Create Slot"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Energy Slots</h2><table><thead><tr><th>Date</th><th>Node</th><th>Time</th><th>Total</th><th>Available</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{new Date(s.slotDate).toLocaleDateString()}</td><td>{nodes.find(n=>n.id===s.nodeId)?.nodeCode||s.nodeId}</td><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td><span className="badge">{typeof s.status === 'number' ? ["Available", "Reserved", "Unavailable", "Completed"][s.status] : s.status}</span></td><td><button style={{padding:"4px 8px"}} onClick={()=>startEdit(s)}>Edit</button></td></tr>)}</tbody></table></Table></div></>}
 
 function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const load=()=>api.get(`/reservations/status/${st}`).then(x=>setA(x.data));useEffect(()=>{load();},[st]);return <><Title t="Reservations" d="Monitor and approve reservation workflow"/><Table><div className="tabs">{["Pending","Approved","Completed","Cancelled"].map(x=><button className={st===x?"selected":""} onClick={()=>setSt(x)} key={x}>{x}</button>)}</div><table><thead><tr><th>Code</th><th>Date</th><th>Time</th><th>Energy</th><th>Status</th><th/></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh} kWh</td><td><span className="badge">{r.status}</span></td><td>{st==="Pending"&&<button onClick={async()=>{await api.put(`/reservations/${r.id}/approve`);load()}}>Approve</button>}</td></tr>)}</tbody></table></Table></>}
 
