@@ -1,17 +1,113 @@
 package com.smartsolar.microgrid.ui;
 
-import android.app.*;import android.content.*;import androidx.appcompat.app.AppCompatActivity;import android.graphics.Color;import android.os.Bundle;import android.view.*;import android.widget.*;import com.google.android.material.button.MaterialButton;import com.google.android.material.textfield.TextInputEditText;import com.google.android.material.textfield.TextInputLayout;import com.smartsolar.microgrid.util.SessionManager;import retrofit2.*;
+import android.app.ProgressDialog;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import com.smartsolar.microgrid.R;
+import com.smartsolar.microgrid.util.SessionManager;
+import retrofit2.Response;
 
 public abstract class BaseActivity extends AppCompatActivity {
- protected LinearLayout root; protected SessionManager session; protected LocalLoading loading;
- @Override protected void onCreate(Bundle b){super.onCreate(b);SessionManager.init(this);session=SessionManager.getInstance();loading=new LocalLoading();}
- protected void setup(String title){root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(20,18,20,18);root.setBackgroundColor(Color.rgb(245,248,247)); TextView bar=t(title,22,Color.WHITE);bar.setPadding(18,22,18,22);bar.setBackgroundColor(Color.rgb(20,107,82));root.addView(bar,new LinearLayout.LayoutParams(-1,-2));setContentView(root);}
- protected TextView t(String x,float sp,int c){TextView v=new TextView(this);v.setText(x);v.setTextSize(sp);v.setTextColor(c);v.setPadding(4,8,4,8);return v;}
- protected TextInputLayout input(String hint){TextInputLayout l=new TextInputLayout(this);l.setHint(hint);l.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);TextInputEditText e=new TextInputEditText(this);l.addView(e);l.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));((LinearLayout.LayoutParams)l.getLayoutParams()).setMargins(0,0,0,10);return l;}
- protected String val(TextInputLayout l){return ((TextInputEditText)l.getEditText()).getText().toString().trim();}
- protected MaterialButton btn(String text){MaterialButton b=new MaterialButton(this);b.setText(text);b.setAllCaps(false);b.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));return b;}
- protected void toast(String m){Toast.makeText(this,m,Toast.LENGTH_LONG).show();}
- protected void fail(Throwable t){toast(t.getMessage()==null?"Request failed":t.getMessage());}
- protected void logout(){session.clear();startActivity(new Intent(this,LoginActivity.class));finishAffinity();}
- protected static class LocalLoading{ProgressDialog p;void show(Context c){p=ProgressDialog.show(c,"Please wait","Connecting to server…",true,false);}void hide(){if(p!=null&&p.isShowing())p.dismiss();}}
+
+    protected SessionManager session;
+    protected ProgressDialog loadingDialog;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        SessionManager.init(this);
+        session = SessionManager.getInstance();
+    }
+
+    // ── Loading dialog ──────────────────────────────────────
+    protected void showLoading() {
+        if (loadingDialog == null) {
+            loadingDialog = new ProgressDialog(this);
+            loadingDialog.setMessage("Please wait…");
+            loadingDialog.setIndeterminate(true);
+            loadingDialog.setCancelable(false);
+        }
+        if (!loadingDialog.isShowing() && !isFinishing()) {
+            loadingDialog.show();
+        }
+    }
+
+    protected void hideLoading() {
+        if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        hideLoading();
+        super.onDestroy();
+    }
+
+    // ── Feedback helpers ────────────────────────────────────
+    protected void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+    }
+
+    protected void snack(View root, String msg) {
+        Snackbar.make(root, msg, Snackbar.LENGTH_LONG)
+                .setBackgroundTint(getColor(R.color.primary))
+                .setTextColor(0xFFFFFFFF)
+                .show();
+    }
+
+    protected void fail(Throwable t) {
+        String msg = t.getMessage();
+        if (msg == null || msg.isEmpty()) {
+            msg = "Network request failed. Please check server connection.";
+        }
+        toast(msg);
+    }
+
+    // ── Text field helper ───────────────────────────────────
+    protected String val(TextInputLayout til) {
+        TextInputEditText et = (TextInputEditText) til.getEditText();
+        return et == null ? "" : et.getText().toString().trim();
+    }
+
+    // ── Error body helper ───────────────────────────────────
+    protected String errorMsg(Response<?> r) {
+        if (r == null) return "Network error";
+        if (r.errorBody() != null) {
+            try { return r.errorBody().string(); } catch (Exception ignored) {}
+        }
+        return "Request failed (" + r.code() + ")";
+    }
+
+    // ── Dashboard action card builder ───────────────────────
+    protected void addActionCard(LinearLayout container, String title,
+                                  int iconRes, View.OnClickListener click) {
+        View card = LayoutInflater.from(this).inflate(R.layout.item_action_card, container, false);
+        ((TextView) card.findViewById(R.id.title)).setText(title);
+        ImageView icon = card.findViewById(R.id.icon);
+        icon.setImageResource(iconRes);
+        card.setOnClickListener(click);
+
+        MaterialCardView mcv = (MaterialCardView) card;
+        mcv.setClickable(true);
+        mcv.setFocusable(true);
+        container.addView(card);
+    }
+
+    // ── Logout helper ───────────────────────────────────────
+    protected void doLogout() {
+        session.clear();
+        android.content.Intent i = new android.content.Intent(this, LoginActivity.class);
+        i.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(i);
+        finish();
+    }
 }

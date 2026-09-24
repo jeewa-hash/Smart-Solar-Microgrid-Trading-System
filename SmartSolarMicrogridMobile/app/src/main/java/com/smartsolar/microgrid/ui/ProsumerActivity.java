@@ -1,358 +1,463 @@
 package com.smartsolar.microgrid.ui;
 
-import android.app.*;
-import android.content.*;
-import android.graphics.*;
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
-import android.view.*;
+import android.text.InputType;
 import android.widget.*;
+import com.google.android.material.button.MaterialButton;
 import com.google.gson.*;
 import com.google.zxing.*;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
-import com.smartsolar.microgrid.api.*;
+import android.graphics.*;
+import com.smartsolar.microgrid.R;
+import com.smartsolar.microgrid.api.ApiClient;
 import com.smartsolar.microgrid.db.LocalDbHelper;
 import com.smartsolar.microgrid.util.ApiUtils;
-import retrofit2.*;
-import java.text.*;
-import java.util.*;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ProsumerActivity extends BaseActivity {
- LinearLayout content; TextView stats; LocalDbHelper db;
 
- @Override protected void onCreate(Bundle b) {
-  super.onCreate(b);
-  if (session.token().isEmpty() || !"Prosumer".equalsIgnoreCase(session.role())) {
-   startActivity(new Intent(this, LoginActivity.class)); finish(); return;
-  }
-  setup("Prosumer Mobile");
-  db = new LocalDbHelper(this);
-  ScrollView sv = new ScrollView(this);
-  content = new LinearLayout(this);
-  content.setOrientation(LinearLayout.VERTICAL);
-  sv.addView(content);
-  root.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
-  loadDashboard();
- }
+    private LinearLayout contentLayout;
+    private TextView tvStatActive, tvStatPending, tvStatCompleted, tvUsername;
+    private LocalDbHelper db;
 
- void loadDashboard() {
-  content.removeAllViews();
-  content.addView(t("My Solar Trading Dashboard", 26, 0xff123f33));
-  stats = t("Loading\u2026", 15, 0xff40534c);
-  content.addView(stats);
-  add("BOOK ENERGY SLOT", v -> book());
-  add("MY BOOKINGS / SEARCH / FILTER", v -> filterBookings());
-  add("BOOKING HISTORY", v -> loadBookings("", "Completed"));
-  add("NEARBY GRID NODES", v -> startActivity(new Intent(this, MapActivity.class)));
-  add("MY PROFILE", v -> profile());
-  add("GENERATE / VIEW QR", v -> qrChooser());
-  add("REQUEST ACCOUNT DEACTIVATION", v -> deactivate());
-  add("LOG OUT", v -> logout());
-  ApiClient.get().prosumerDashboard(session.nic()).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    if (r.isSuccessful() && r.body() != null) {
-     JsonObject x = r.body();
-     stats.setText("Active: " + x.get("activeReservations").getAsInt()
-      + "    Pending: " + x.get("pendingReservations").getAsInt()
-      + "    Completed: " + x.get("historyCount").getAsInt());
-    } else stats.setText("Dashboard unavailable: " + ApiUtils.error(r));
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { stats.setText("Dashboard unavailable"); }
-  });
- }
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
- void add(String text, View.OnClickListener l) { Button b = btn(text); b.setOnClickListener(l); content.addView(b); }
+        if (session.token().isEmpty() || !"Prosumer".equalsIgnoreCase(session.role())) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
 
- void book() {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().slots("", true).enqueue(new Callback<JsonElement>() {
-   public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-    loading.hide();
-    if (!r.isSuccessful() || r.body() == null) { toast(ApiUtils.error(r)); return; }
-    JsonArray a = r.body().getAsJsonArray();
-    if (a.size() == 0) { toast("No available slots found."); return; }
-    String[] labels = new String[a.size()];
-    for (int i = 0; i < a.size(); i++) {
-     JsonObject s = a.get(i).getAsJsonObject();
-     labels[i] = ApiUtils.str(s, "id") + " | " + date(s, "slotDate")
-      + " | " + ApiUtils.str(s, "startTime") + "-" + ApiUtils.str(s, "endTime")
-      + " | " + ApiUtils.num(s, "availableCapacityKwh") + " kWh";
+        setContentView(R.layout.activity_prosumer);
+
+        contentLayout    = findViewById(R.id.contentLayout);
+        tvStatActive     = findViewById(R.id.tvStatActive);
+        tvStatPending    = findViewById(R.id.tvStatPending);
+        tvStatCompleted  = findViewById(R.id.tvStatCompleted);
+        tvUsername       = findViewById(R.id.tvUsername);
+        db               = new LocalDbHelper(this);
+
+        tvUsername.setText(session.username() + " · " + session.nic());
+
+        MaterialButton btnLogout = findViewById(R.id.btnLogout);
+        btnLogout.setOnClickListener(v -> doLogout());
+
+        buildActions();
+        loadDashboard();
     }
-    new AlertDialog.Builder(ProsumerActivity.this)
-     .setTitle("Select available slot")
-     .setItems(labels, (d, w) -> energyDialog(a.get(w).getAsJsonObject()))
-     .show();
-   }
-   public void onFailure(Call<JsonElement> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
 
- void energyDialog(JsonObject slot) {
-  final EditText e = new EditText(this);
-  e.setHint("Energy amount (kWh)");
-  e.setInputType(2 | 8192);
-  new AlertDialog.Builder(this)
-   .setTitle("Reserve slot")
-   .setMessage("Date: " + date(slot, "slotDate")
-    + "\nTime: " + ApiUtils.str(slot, "startTime") + " - " + ApiUtils.str(slot, "endTime")
-    + "\nAvailable: " + ApiUtils.num(slot, "availableCapacityKwh") + " kWh")
-   .setView(e)
-   .setNegativeButton("CANCEL", null)
-   .setPositiveButton("CONFIRM", (d, w) -> createReservation(ApiUtils.str(slot, "id"), e.getText().toString()))
-   .show();
- }
-
- void createReservation(String slot, String amount) {
-  try {
-   double k = Double.parseDouble(amount);
-   if (k <= 0) { toast("Enter a valid amount"); return; }
-   JsonObject j = new JsonObject();
-   j.addProperty("energySlotId", slot);
-   j.addProperty("energyAmountKwh", k);
-   loading.show(ProsumerActivity.this);
-   ApiClient.get().createReservation(session.nic(), j).enqueue(new Callback<JsonObject>() {
-    public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-     loading.hide();
-     if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-     showSummary("Booking request created", r.body());
-     loadDashboard();
+    private void buildActions() {
+        contentLayout.removeAllViews();
+        addActionCard(contentLayout, "Book Energy Slot",
+                android.R.drawable.ic_menu_add, v -> book());
+        addActionCard(contentLayout, "My Bookings & Search",
+                android.R.drawable.ic_menu_agenda, v -> filterBookings());
+        addActionCard(contentLayout, "Booking History",
+                android.R.drawable.ic_menu_recent_history, v -> loadBookings("", "Completed"));
+        addActionCard(contentLayout, "Nearby Grid Nodes on Map",
+                android.R.drawable.ic_menu_mapmode, v ->
+                        startActivity(new Intent(this, MapActivity.class)));
+        addActionCard(contentLayout, "My Profile",
+                android.R.drawable.ic_menu_my_calendar, v -> profile());
+        addActionCard(contentLayout, "View / Generate QR Code",
+                android.R.drawable.ic_menu_share, v -> filterBookings());
+        addActionCard(contentLayout, "Request Account Deactivation",
+                android.R.drawable.ic_delete, v -> deactivate());
     }
-    public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-   });
-  } catch (Exception e) { toast("Enter a valid number"); }
- }
 
- void bookings() { filterBookings(); }
-
- void filterBookings() {
-  final EditText search = new EditText(this);
-  search.setHint("Search reservation code / node ID (optional)");
-  final Spinner sp = new Spinner(this);
-  String[] opts = {"All", "Pending", "Approved", "Cancelled", "Completed"};
-  sp.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, opts));
-  LinearLayout box = new LinearLayout(this);
-  box.setOrientation(LinearLayout.VERTICAL);
-  box.addView(search);
-  box.addView(sp);
-  new AlertDialog.Builder(this)
-   .setTitle("Search & Filter Bookings")
-   .setView(box)
-   .setNegativeButton("CLOSE", null)
-   .setPositiveButton("SEARCH", (d, w) -> {
-    String st = sp.getSelectedItem().toString();
-    loadBookings(search.getText().toString().trim(), "All".equals(st) ? "" : st);
-   }).show();
- }
-
- void loadBookings(String searchText, String statusFilter) {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().myReservations(session.nic(), searchText, statusFilter).enqueue(new Callback<JsonElement>() {
-   public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-    loading.hide();
-    if (!r.isSuccessful() || r.body() == null) { toast(ApiUtils.error(r)); return; }
-    JsonArray a = r.body().getAsJsonArray();
-    if (a.size() == 0) { toast("No bookings found"); return; }
-    String[] labels = new String[a.size()];
-    for (int i = 0; i < a.size(); i++) {
-     JsonObject x = a.get(i).getAsJsonObject();
-     labels[i] = ApiUtils.str(x, "reservationCode") + " | "
-      + ApiUtils.str(x, "status") + " | " + date(x, "reservationDate");
+    private void loadDashboard() {
+        showLoading();
+        ApiClient.get().prosumerDashboard(session.nic()).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (r.isSuccessful() && r.body() != null) {
+                    JsonObject x = r.body();
+                    tvStatActive.setText(String.valueOf(
+                            x.has("activeReservations") ? x.get("activeReservations").getAsInt() : 0));
+                    tvStatPending.setText(String.valueOf(
+                            x.has("pendingReservations") ? x.get("pendingReservations").getAsInt() : 0));
+                    tvStatCompleted.setText(String.valueOf(
+                            x.has("historyCount") ? x.get("historyCount").getAsInt() : 0));
+                }
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); }
+        });
     }
-    new AlertDialog.Builder(ProsumerActivity.this)
-     .setTitle("Bookings")
-     .setItems(labels, (d, w) -> bookingActions(a.get(w).getAsJsonObject()))
-     .show();
-   }
-   public void onFailure(Call<JsonElement> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
 
- void bookingActions(JsonObject r) {
-  String status = ApiUtils.str(r, "status");
-  AlertDialog.Builder b = new AlertDialog.Builder(this)
-   .setTitle(ApiUtils.str(r, "reservationCode"))
-   .setMessage("Date: " + date(r, "reservationDate")
-    + "\nTime: " + ApiUtils.str(r, "startTime") + " - " + ApiUtils.str(r, "endTime")
-    + "\nEnergy: " + ApiUtils.num(r, "energyAmountKwh") + " kWh"
-    + "\nStatus: " + status);
-  if ("Approved".equalsIgnoreCase(status))
-   b.setNeutralButton("GET QR", (d, w) -> generateQr(ApiUtils.str(r, "id")));
-  if ("Pending".equalsIgnoreCase(status) || "Approved".equalsIgnoreCase(status)) {
-   b.setPositiveButton("MODIFY", (d, w) -> modifyDialog(r));
-   b.setNegativeButton("CANCEL", (d, w) -> cancel(ApiUtils.str(r, "id")));
-  } else b.setPositiveButton("OK", null);
-  b.show();
- }
+    // ── Book a slot ────────────────────────────────────────
+    private void book() {
+        showLoading();
+        ApiClient.get().slots("", true).enqueue(new Callback<JsonElement>() {
+            @Override
+            public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
+                hideLoading();
+                if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
+                JsonArray a = r.body().getAsJsonArray();
+                if (a.size() == 0) { toast("No available slots found."); return; }
 
- void modifyDialog(JsonObject old) {
-  final EditText slot = new EditText(this);
-  slot.setHint("New Energy Slot ID");
-  final EditText amt = new EditText(this);
-  amt.setHint("New Energy Amount kWh");
-  LinearLayout box = new LinearLayout(this);
-  box.setOrientation(LinearLayout.VERTICAL);
-  box.addView(slot); box.addView(amt);
-  new AlertDialog.Builder(this)
-   .setTitle("Modify reservation")
-   .setMessage("Modification requires at least 12 hours notice.")
-   .setView(box)
-   .setNegativeButton("CANCEL", null)
-   .setPositiveButton("UPDATE", (d, w) -> {
-    try {
-     JsonObject j = new JsonObject();
-     j.addProperty("energySlotId", slot.getText().toString().trim());
-     j.addProperty("energyAmountKwh", Double.parseDouble(amt.getText().toString()));
-     updateReservation(ApiUtils.str(old, "id"), j);
-    } catch (Exception e) { toast("Enter valid values"); }
-   }).show();
- }
+                String[] labels = new String[a.size()];
+                for (int i = 0; i < a.size(); i++) {
+                    JsonObject s = a.get(i).getAsJsonObject();
+                    labels[i] = "📅 " + shortDate(ApiUtils.str(s, "slotDate"))
+                            + "  ⏱ " + ApiUtils.str(s, "startTime") + "–" + ApiUtils.str(s, "endTime")
+                            + "  ⚡ " + fmt(ApiUtils.num(s, "availableCapacityKwh")) + " kWh";
+                }
+                new AlertDialog.Builder(ProsumerActivity.this)
+                        .setTitle("Available Energy Slots")
+                        .setItems(labels, (d, w) -> energyDialog(a.get(w).getAsJsonObject()))
+                        .show();
+            }
+            @Override
+            public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
 
- void updateReservation(String id, JsonObject j) {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().updateReservation(id, session.nic(), j).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    showSummary("Booking updated", r.body());
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+    private void energyDialog(JsonObject slot) {
+        EditText et = new EditText(this);
+        et.setHint("Energy amount (kWh)");
+        et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
 
- void cancel(String id) {
-  new AlertDialog.Builder(this)
-   .setTitle("Cancel booking?")
-   .setMessage("Cancellation requires at least 12 hours notice.")
-   .setNegativeButton("NO", null)
-   .setPositiveButton("YES", (d, w) -> {
-    loading.show(ProsumerActivity.this);
-    ApiClient.get().cancelReservation(id, session.nic()).enqueue(new Callback<JsonObject>() {
-     public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-      loading.hide();
-      if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-      showSummary("Booking cancelled", r.body());
-      loadDashboard();
-     }
-     public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-    });
-   }).show();
- }
+        new AlertDialog.Builder(this)
+                .setTitle("Reserve Slot")
+                .setMessage("📅 " + shortDate(ApiUtils.str(slot, "slotDate"))
+                        + "\n⏱ " + ApiUtils.str(slot, "startTime")
+                        + " – " + ApiUtils.str(slot, "endTime")
+                        + "\n⚡ Available: " + fmt(ApiUtils.num(slot, "availableCapacityKwh")) + " kWh")
+                .setView(et)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Confirm", (d, w) ->
+                        createReservation(ApiUtils.str(slot, "id"), et.getText().toString()))
+                .show();
+    }
 
- void generateQr(String id) {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().generateQr(id).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    showQr(r.body());
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+    private void createReservation(String slotId, String amount) {
+        try {
+            double k = Double.parseDouble(amount);
+            if (k <= 0) { toast("Enter a valid energy amount"); return; }
+            JsonObject body = new JsonObject();
+            body.addProperty("energySlotId", slotId);
+            body.addProperty("energyAmountKwh", k);
+            showLoading();
+            ApiClient.get().createReservation(session.nic(), body).enqueue(new Callback<JsonObject>() {
+                @Override
+                public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                    hideLoading();
+                    if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                    showSummary("✅ Booking Created", r.body());
+                    loadDashboard();
+                }
+                @Override
+                public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+            });
+        } catch (Exception e) { toast("Enter a valid number"); }
+    }
 
- void qrChooser() { bookings(); }
+    // ── Filter / search bookings ───────────────────────────
+    private void filterBookings() {
+        EditText search = new EditText(this);
+        search.setHint("Search code or node ID (optional)");
+        Spinner spinner = new Spinner(this);
+        String[] opts = {"All", "Pending", "Approved", "Cancelled", "Completed"};
+        spinner.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, opts));
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(32, 16, 32, 0);
+        box.addView(search);
+        box.addView(spinner);
 
- void showQr(JsonObject q) {
-  String token = ApiUtils.str(q, "qrToken");
-  ImageView img = new ImageView(this);
-  try {
-   BitMatrix m = new QRCodeWriter().encode(token, BarcodeFormat.QR_CODE, 800, 800);
-   Bitmap bmp = Bitmap.createBitmap(800, 800, Bitmap.Config.RGB_565);
-   for (int x = 0; x < 800; x++)
-    for (int y = 0; y < 800; y++)
-     bmp.setPixel(x, y, m.get(x, y) ? Color.BLACK : Color.WHITE);
-   img.setImageBitmap(bmp);
-  } catch (Exception e) { toast("QR display error"); return; }
-  new AlertDialog.Builder(this)
-   .setTitle("Transaction QR")
-   .setMessage("Transaction: " + ApiUtils.str(q, "transactionCode")
-    + "\nShow this QR to the Grid Operator at the station.")
-   .setView(img)
-   .setPositiveButton("DONE", null).show();
- }
+        new AlertDialog.Builder(this)
+                .setTitle("Search & Filter Bookings")
+                .setView(box)
+                .setNegativeButton("Close", null)
+                .setPositiveButton("Search", (d, w) -> {
+                    String st = spinner.getSelectedItem().toString();
+                    loadBookings(search.getText().toString().trim(),
+                            "All".equals(st) ? "" : st);
+                }).show();
+    }
 
- void profile() {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().getProsumer(session.nic()).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    JsonObject x = r.body();
-    db.saveUser(session.nic(), ApiUtils.str(x, "fullName"), ApiUtils.str(x, "email"),
-     ApiUtils.str(x, "phone"), ApiUtils.str(x, "address"), session.username(), session.role());
-    LinearLayout box = new LinearLayout(ProsumerActivity.this);
-    box.setOrientation(LinearLayout.VERTICAL);
-    EditText n = field(x, "fullName");
-    EditText e = field(x, "email");
-    EditText p = field(x, "phone");
-    EditText a = field(x, "address");
-    box.addView(n); box.addView(e); box.addView(p); box.addView(a);
-    new AlertDialog.Builder(ProsumerActivity.this)
-     .setTitle("My Profile\nNIC: " + session.nic())
-     .setView(box)
-     .setNegativeButton("CLOSE", null)
-     .setPositiveButton("SAVE", (d, w) -> {
-      JsonObject j = new JsonObject();
-      j.addProperty("fullName", n.getText().toString());
-      j.addProperty("email", e.getText().toString());
-      j.addProperty("phone", p.getText().toString());
-      j.addProperty("address", a.getText().toString());
-      updateProfile(j);
-     }).show();
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+    private void loadBookings(String searchText, String statusFilter) {
+        showLoading();
+        ApiClient.get().myReservations(session.nic(), searchText, statusFilter)
+                .enqueue(new Callback<JsonElement>() {
+                    @Override
+                    public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
+                        hideLoading();
+                        if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
+                        JsonArray a = r.body().getAsJsonArray();
+                        if (a.size() == 0) { toast("No bookings found"); return; }
 
- EditText field(JsonObject x, String k) {
-  EditText e = new EditText(this);
-  e.setHint(k);
-  e.setText(ApiUtils.str(x, k));
-  return e;
- }
+                        String[] labels = new String[a.size()];
+                        for (int i = 0; i < a.size(); i++) {
+                            JsonObject x = a.get(i).getAsJsonObject();
+                            labels[i] = statusIcon(ApiUtils.str(x, "status"))
+                                    + " " + ApiUtils.str(x, "reservationCode")
+                                    + "  ·  " + shortDate(ApiUtils.str(x, "reservationDate"));
+                        }
+                        new AlertDialog.Builder(ProsumerActivity.this)
+                                .setTitle("My Bookings")
+                                .setItems(labels, (d, w) ->
+                                        bookingActions(a.get(w).getAsJsonObject()))
+                                .show();
+                    }
+                    @Override
+                    public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
+                });
+    }
 
- void updateProfile(JsonObject j) {
-  loading.show(ProsumerActivity.this);
-  ApiClient.get().updateProsumer(session.nic(), j).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    toast("Profile updated");
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+    private void bookingActions(JsonObject r) {
+        String status = ApiUtils.str(r, "status");
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle(ApiUtils.str(r, "reservationCode")
+                        + "  " + statusIcon(status) + " " + status)
+                .setMessage("📅 " + shortDate(ApiUtils.str(r, "reservationDate"))
+                        + "\n⏱ " + ApiUtils.str(r, "startTime")
+                        + " – " + ApiUtils.str(r, "endTime")
+                        + "\n⚡ " + fmt(ApiUtils.num(r, "energyAmountKwh")) + " kWh");
 
- void deactivate() {
-  new AlertDialog.Builder(this)
-   .setTitle("Request account deactivation")
-   .setMessage("This sends a deactivation request to Backoffice.")
-   .setNegativeButton("CANCEL", null)
-   .setPositiveButton("REQUEST", (d, w) -> {
-    loading.show(ProsumerActivity.this);
-    ApiClient.get().requestDeactivation(session.nic()).enqueue(new Callback<JsonObject>() {
-     public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-      loading.hide();
-      if (r.isSuccessful()) toast("Deactivation request submitted");
-      else toast(ApiUtils.error(r));
-     }
-     public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-    });
-   }).show();
- }
+        if ("Approved".equalsIgnoreCase(status))
+            b.setNeutralButton("Get QR", (d, w) -> generateQr(ApiUtils.str(r, "id")));
+        if ("Pending".equalsIgnoreCase(status) || "Approved".equalsIgnoreCase(status)) {
+            b.setPositiveButton("Modify", (d, w) -> modifyDialog(r));
+            b.setNegativeButton("Cancel Booking", (d, w) -> confirmCancel(ApiUtils.str(r, "id")));
+        } else {
+            b.setPositiveButton("Close", null);
+        }
+        b.show();
+    }
 
- void showSummary(String title, JsonObject r) {
-  new AlertDialog.Builder(this)
-   .setTitle(title)
-   .setMessage("Reservation: " + ApiUtils.str(r, "reservationCode")
-    + "\nStatus: " + ApiUtils.str(r, "status")
-    + "\nDate: " + date(r, "reservationDate")
-    + "\nEnergy: " + ApiUtils.num(r, "energyAmountKwh") + " kWh")
-   .setPositiveButton("OK", null).show();
- }
+    private void modifyDialog(JsonObject old) {
+        EditText etSlot = new EditText(this); etSlot.setHint("New Slot ID");
+        EditText etAmt  = new EditText(this); etAmt.setHint("New Energy Amount (kWh)");
+        etAmt.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(32, 16, 32, 0);
+        box.addView(etSlot); box.addView(etAmt);
 
- String date(JsonObject o, String k) {
-  String s = ApiUtils.str(o, k);
-  return s.length() >= 10 ? s.substring(0, 10) : s;
- }
+        new AlertDialog.Builder(this)
+                .setTitle("Modify Reservation")
+                .setMessage("Note: Modification requires at least 12 hours notice.")
+                .setView(box)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Update", (d, w) -> {
+                    try {
+                        JsonObject j = new JsonObject();
+                        j.addProperty("energySlotId", etSlot.getText().toString().trim());
+                        j.addProperty("energyAmountKwh", Double.parseDouble(etAmt.getText().toString()));
+                        updateReservation(ApiUtils.str(old, "id"), j);
+                    } catch (Exception e) { toast("Enter valid values"); }
+                }).show();
+    }
+
+    private void updateReservation(String id, JsonObject body) {
+        showLoading();
+        ApiClient.get().updateReservation(id, session.nic(), body).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                showSummary("✅ Booking Updated", r.body());
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void confirmCancel(String id) {
+        new AlertDialog.Builder(this)
+                .setTitle("Cancel Booking?")
+                .setMessage("Cancellation requires at least 12 hours notice.")
+                .setNegativeButton("No", null)
+                .setPositiveButton("Yes, Cancel", (d, w) -> cancelReservation(id))
+                .show();
+    }
+
+    private void cancelReservation(String id) {
+        showLoading();
+        ApiClient.get().cancelReservation(id, session.nic()).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                showSummary("Booking Cancelled", r.body());
+                loadDashboard();
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    // ── QR ─────────────────────────────────────────────────
+    private void generateQr(String reservationId) {
+        showLoading();
+        ApiClient.get().generateQr(reservationId).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                showQr(r.body());
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void showQr(JsonObject q) {
+        String token = ApiUtils.str(q, "qrToken");
+        ImageView img = new ImageView(this);
+        img.setPadding(16, 16, 16, 16);
+        try {
+            BitMatrix m = new QRCodeWriter().encode(token, BarcodeFormat.QR_CODE, 700, 700);
+            Bitmap bmp  = Bitmap.createBitmap(700, 700, Bitmap.Config.RGB_565);
+            for (int x = 0; x < 700; x++)
+                for (int y = 0; y < 700; y++)
+                    bmp.setPixel(x, y, m.get(x, y) ? Color.BLACK : Color.WHITE);
+            img.setImageBitmap(bmp);
+        } catch (Exception e) { toast("QR generation error"); return; }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Transaction QR Code")
+                .setMessage("📋 " + ApiUtils.str(q, "transactionCode")
+                        + "\n\nShow this QR to the Grid Operator at the charging station.")
+                .setView(img)
+                .setPositiveButton("Done", null)
+                .show();
+    }
+
+    // ── Profile ────────────────────────────────────────────
+    private void profile() {
+        showLoading();
+        ApiClient.get().getProsumer(session.nic()).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                JsonObject x = r.body();
+                db.saveUser(session.nic(), ApiUtils.str(x, "fullName"),
+                        ApiUtils.str(x, "email"), ApiUtils.str(x, "phone"),
+                        ApiUtils.str(x, "address"), session.username(), session.role());
+
+                EditText etName = makeField(ApiUtils.str(x, "fullName"));
+                EditText etEmail = makeField(ApiUtils.str(x, "email"));
+                EditText etPhone = makeField(ApiUtils.str(x, "phone"));
+                EditText etAddr  = makeField(ApiUtils.str(x, "address"));
+
+                LinearLayout box = new LinearLayout(ProsumerActivity.this);
+                box.setOrientation(LinearLayout.VERTICAL);
+                box.setPadding(32, 8, 32, 0);
+                addLabeled(box, "Full Name", etName);
+                addLabeled(box, "Email", etEmail);
+                addLabeled(box, "Phone", etPhone);
+                addLabeled(box, "Address", etAddr);
+
+                new AlertDialog.Builder(ProsumerActivity.this)
+                        .setTitle("My Profile  ·  NIC: " + session.nic())
+                        .setView(box)
+                        .setNegativeButton("Close", null)
+                        .setPositiveButton("Save Changes", (d, w) -> {
+                            JsonObject j = new JsonObject();
+                            j.addProperty("fullName", etName.getText().toString());
+                            j.addProperty("email",    etEmail.getText().toString());
+                            j.addProperty("phone",    etPhone.getText().toString());
+                            j.addProperty("address",  etAddr.getText().toString());
+                            updateProfile(j);
+                        }).show();
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void updateProfile(JsonObject body) {
+        showLoading();
+        ApiClient.get().updateProsumer(session.nic(), body).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                toast("✅ Profile updated successfully");
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    // ── Deactivation ───────────────────────────────────────
+    private void deactivate() {
+        new AlertDialog.Builder(this)
+                .setTitle("Request Account Deactivation")
+                .setMessage("This will send a deactivation request to Backoffice for review.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Send Request", (d, w) -> {
+                    showLoading();
+                    ApiClient.get().requestDeactivation(session.nic())
+                            .enqueue(new Callback<JsonObject>() {
+                                @Override
+                                public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                                    hideLoading();
+                                    if (r.isSuccessful()) toast("Deactivation request submitted.");
+                                    else toast(errorMsg(r));
+                                }
+                                @Override
+                                public void onFailure(Call<JsonObject> c, Throwable t) {
+                                    hideLoading(); fail(t);
+                                }
+                            });
+                }).show();
+    }
+
+    // ── UI utility helpers ─────────────────────────────────
+    private void showSummary(String title, JsonObject r) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage("📋 " + ApiUtils.str(r, "reservationCode")
+                        + "\n🔖 Status: " + ApiUtils.str(r, "status")
+                        + "\n📅 Date: " + shortDate(ApiUtils.str(r, "reservationDate"))
+                        + "\n⚡ Energy: " + fmt(ApiUtils.num(r, "energyAmountKwh")) + " kWh")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private EditText makeField(String value) {
+        EditText et = new EditText(this);
+        et.setText(value);
+        return et;
+    }
+
+    private void addLabeled(LinearLayout parent, String label, EditText et) {
+        TextView tv = new TextView(this);
+        tv.setText(label);
+        tv.setTextColor(0xFF1B6B4A);
+        tv.setTextSize(12f);
+        tv.setPadding(0, 12, 0, 2);
+        parent.addView(tv);
+        parent.addView(et);
+    }
+
+    private String shortDate(String s) {
+        return (s != null && s.length() >= 10) ? s.substring(0, 10) : s;
+    }
+
+    private String fmt(double d) {
+        return d == (long) d ? String.valueOf((long) d) : String.valueOf(d);
+    }
+
+    private String statusIcon(String status) {
+        if ("Approved".equalsIgnoreCase(status))   return "✅";
+        if ("Pending".equalsIgnoreCase(status))    return "⏳";
+        if ("Completed".equalsIgnoreCase(status))  return "🏁";
+        if ("Cancelled".equalsIgnoreCase(status))  return "❌";
+        return "•";
+    }
 }

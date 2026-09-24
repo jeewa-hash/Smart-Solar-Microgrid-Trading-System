@@ -1,1 +1,42 @@
-<resources><color name="primary">#146B52</color><color name="primary_dark">#0B4D3B</color><color name="accent">#F4B942</color><color name="bg">#F5F8F7</color></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand greens -->
+    <color name="primary">#1B6B4A</color>
+    <color name="primary_dark">#0D4F33</color>
+    <color name="primary_light">#2E8B5A</color>
+    <color name="primary_container">#C8F0D8</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_primary_container">#002111</color>
+
+    <!-- Secondary / accent amber -->
+    <color name="secondary">#F4A829</color>
+    <color name="secondary_container">#FFEABC</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="on_secondary_container">#271900</color>
+
+    <!-- Background / surface -->
+    <color name="bg">#F4F8F6</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#ECF4F0</color>
+    <color name="on_surface">#1A1C1A</color>
+    <color name="on_surface_variant">#3F4944</color>
+    <color name="outline">#6F7975</color>
+
+    <!-- Error -->
+    <color name="error">#BA1A1A</color>
+    <color name="error_container">#FFDAD6</color>
+
+    <!-- Gradient stops -->
+    <color name="gradient_start">#1B6B4A</color>
+    <color name="gradient_end">#0D4F33</color>
+
+    <!-- Card shadow / divider -->
+    <color name="divider">#E0E8E4</color>
+    <color name="card_bg">#FFFFFF</color>
+
+    <!-- Status colors -->
+    <color name="status_pending">#F4A829</color>
+    <color name="status_approved">#1B6B4A</color>
+    <color name="status_completed">#2979FF</color>
+    <color name="status_cancelled">#BA1A1A</color>
+</resources>

@@ -1,218 +1,266 @@
 package com.smartsolar.microgrid.ui;
-import com.smartsolar.microgrid.util.ApiUtils;
+
 import android.app.AlertDialog;
-import android.view.View;
-import android.content.*;
+import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputType;
 import android.widget.*;
+import com.google.android.material.button.MaterialButton;
 import com.google.gson.*;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
-import com.smartsolar.microgrid.api.*;
-import retrofit2.*;
+import com.smartsolar.microgrid.R;
+import com.smartsolar.microgrid.api.ApiClient;
+import com.smartsolar.microgrid.util.ApiUtils;
+import androidx.activity.result.ActivityResultLauncher;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class OperatorActivity extends BaseActivity {
- LinearLayout content; TextView stats;
 
- @Override protected void onCreate(Bundle b) {
-  super.onCreate(b);
-  if (session.token().isEmpty() || !"GridOperator".equalsIgnoreCase(session.role())) {
-   startActivity(new Intent(this, LoginActivity.class)); finish(); return;
-  }
-  setup("Grid Operator Mobile");
-  ScrollView sv = new ScrollView(this);
-  content = new LinearLayout(this);
-  content.setOrientation(LinearLayout.VERTICAL);
-  sv.addView(content);
-  root.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
-  dashboard();
- }
+    private LinearLayout contentLayout;
+    private TextView tvStatPending, tvStatApproved, tvStatToday;
 
- void dashboard() {
-  content.removeAllViews();
-  content.addView(t("Operations Dashboard", 26, 0xff123f33));
-  stats = t("Loading\u2026", 15, 0xff40534c);
-  content.addView(stats);
-  add("SCAN PROSUMER QR", v -> scan());
-  add("PENDING BOOKINGS", v -> showReservations("Pending"));
-  add("APPROVED BOOKINGS", v -> showReservations("Approved"));
-  add("AVAILABLE ENERGY SLOTS", v -> slots());
-  add("UPDATE SLOT AVAILABILITY", v -> availability());
-  add("LOG OUT", v -> logout());
-  ApiClient.get().operatorDashboard().enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    if (r.isSuccessful() && r.body() != null) {
-     JsonObject x = r.body();
-     stats.setText("Pending: " + ApiUtils.num(x, "pendingReservations")
-      + "    Approved: " + ApiUtils.num(x, "approvedReservations")
-      + "    Today: " + ApiUtils.num(x, "todayBookings")
-      + "    Available slots: " + ApiUtils.num(x, "availableSlots"));
-    } else stats.setText(ApiUtils.error(r));
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { stats.setText("Dashboard unavailable"); }
-  });
- }
+    private final ActivityResultLauncher<ScanOptions> scanLauncher =
+            registerForActivityResult(new ScanContract(), result -> {
+                if (result.getContents() != null) verifyQr(result.getContents());
+                else toast("Scan cancelled");
+            });
 
- void add(String s, View.OnClickListener l) { Button b = btn(s); b.setOnClickListener(l); content.addView(b); }
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
- void scan() {
-  ScanOptions o = new ScanOptions();
-  o.setPrompt("Scan Prosumer transaction QR");
-  o.setBeepEnabled(true);
-  o.setOrientationLocked(false);
-  o.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
-  scanLauncher.launch(o);
- }
+        if (session.token().isEmpty() || !"GridOperator".equalsIgnoreCase(session.role())) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
 
- private final androidx.activity.result.ActivityResultLauncher<ScanOptions> scanLauncher =
-  registerForActivityResult(new ScanContract(), result -> {
-   if (result.getContents() != null) verify(result.getContents());
-   else toast("Scan cancelled");
-  });
+        setContentView(R.layout.activity_operator);
 
- void verify(String token) {
-  JsonObject j = new JsonObject();
-  j.addProperty("qrToken", token);
-  loading.show(OperatorActivity.this);
-  ApiClient.get().verifyQr(j).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    JsonObject x = r.body();
-    JsonObject res = x.has("reservation") && x.get("reservation").isJsonObject()
-     ? x.getAsJsonObject("reservation") : new JsonObject();
-    new AlertDialog.Builder(OperatorActivity.this)
-     .setTitle("QR VERIFIED \u2713")
-     .setMessage("Transaction: " + ApiUtils.str(x, "transactionCode")
-      + "\nReservation: " + ApiUtils.str(res, "reservationCode")
-      + "\nEnergy: " + ApiUtils.num(res, "energyAmountKwh") + " kWh"
-      + "\nStatus: " + ApiUtils.str(res, "status"))
-     .setNegativeButton("CANCEL", null)
-     .setPositiveButton("FINALIZE TRANSFER", (d, w) -> complete(token))
-     .show();
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+        contentLayout  = findViewById(R.id.contentLayout);
+        tvStatPending  = findViewById(R.id.tvStatPending);
+        tvStatApproved = findViewById(R.id.tvStatApproved);
+        tvStatToday    = findViewById(R.id.tvStatToday);
 
- void complete(String token) {
-  JsonObject j = new JsonObject();
-  j.addProperty("qrToken", token);
-  loading.show(OperatorActivity.this);
-  ApiClient.get().completeQr(j).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (!r.isSuccessful()) { toast(ApiUtils.error(r)); return; }
-    toast("Energy transfer completed successfully.");
-    dashboard();
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+        MaterialButton btnLogout = findViewById(R.id.btnLogout);
+        btnLogout.setOnClickListener(v -> doLogout());
 
- void showReservations(String status) {
-  loading.show(OperatorActivity.this);
-  ApiClient.get().reservationsByStatus(status).enqueue(new Callback<JsonElement>() {
-   public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-    loading.hide();
-    if (!r.isSuccessful() || r.body() == null) { toast(ApiUtils.error(r)); return; }
-    JsonArray a = r.body().getAsJsonArray();
-    if (a.size() == 0) { toast("No " + status.toLowerCase() + " reservations."); return; }
-    String[] labels = new String[a.size()];
-    for (int i = 0; i < a.size(); i++) {
-     JsonObject x = a.get(i).getAsJsonObject();
-     labels[i] = ApiUtils.str(x, "reservationCode") + " | "
-      + ApiUtils.num(x, "energyAmountKwh") + " kWh | " + ApiUtils.str(x, "status");
+        buildActions();
+        loadDashboard();
     }
-    new AlertDialog.Builder(OperatorActivity.this)
-     .setTitle(status + " Reservations")
-     .setItems(labels, (d, w) -> details(a.get(w).getAsJsonObject()))
-     .show();
-   }
-   public void onFailure(Call<JsonElement> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
 
- void details(JsonObject x) {
-  new AlertDialog.Builder(this)
-   .setTitle(ApiUtils.str(x, "reservationCode"))
-   .setMessage("Prosumer: " + ApiUtils.str(x, "prosumerId")
-    + "\nNode: " + ApiUtils.str(x, "nodeId")
-    + "\nSlot: " + ApiUtils.str(x, "energySlotId")
-    + "\nDate: " + ApiUtils.str(x, "reservationDate")
-    + "\nTime: " + ApiUtils.str(x, "startTime") + " - " + ApiUtils.str(x, "endTime")
-    + "\nEnergy: " + ApiUtils.num(x, "energyAmountKwh") + " kWh"
-    + "\nStatus: " + ApiUtils.str(x, "status"))
-   .setPositiveButton("OK", null).show();
- }
-
- void slots() {
-  loading.show(OperatorActivity.this);
-  ApiClient.get().operatorSlots("", true).enqueue(new Callback<JsonElement>() {
-   public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-    loading.hide();
-    if (!r.isSuccessful() || r.body() == null) { toast(ApiUtils.error(r)); return; }
-    JsonArray a = r.body().getAsJsonArray();
-    String[] l = new String[a.size()];
-    for (int i = 0; i < a.size(); i++) {
-     JsonObject x = a.get(i).getAsJsonObject();
-     l[i] = ApiUtils.str(x, "id") + " | " + ApiUtils.str(x, "slotDate")
-      + " | " + ApiUtils.str(x, "startTime")
-      + " | " + ApiUtils.num(x, "availableCapacityKwh") + " kWh";
+    private void buildActions() {
+        contentLayout.removeAllViews();
+        addActionCard(contentLayout, "Scan Prosumer QR Code",
+                android.R.drawable.ic_menu_camera, v -> startScan());
+        addActionCard(contentLayout, "Pending Bookings",
+                android.R.drawable.ic_menu_agenda, v -> showReservations("Pending"));
+        addActionCard(contentLayout, "Approved Bookings",
+                android.R.drawable.ic_menu_sort_by_size, v -> showReservations("Approved"));
+        addActionCard(contentLayout, "Available Energy Slots",
+                android.R.drawable.ic_menu_info_details, v -> showSlots(true));
+        addActionCard(contentLayout, "Update Slot Availability",
+                android.R.drawable.ic_menu_edit, v -> showSlots(false));
     }
-    new AlertDialog.Builder(OperatorActivity.this).setTitle("Available slots").setItems(l, null).show();
-   }
-   public void onFailure(Call<JsonElement> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
 
- void availability() {
-  loading.show(OperatorActivity.this);
-  ApiClient.get().operatorSlots("", false).enqueue(new Callback<JsonElement>() {
-   public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-    loading.hide();
-    if (!r.isSuccessful() || r.body() == null) { toast(ApiUtils.error(r)); return; }
-    JsonArray a = r.body().getAsJsonArray();
-    if (a.size() == 0) { toast("No slots found"); return; }
-    String[] l = new String[a.size()];
-    for (int i = 0; i < a.size(); i++) {
-     JsonObject x = a.get(i).getAsJsonObject();
-     l[i] = ApiUtils.str(x, "id") + " | " + ApiUtils.str(x, "status")
-      + " | " + ApiUtils.num(x, "availableCapacityKwh") + " kWh";
+    private void loadDashboard() {
+        showLoading();
+        ApiClient.get().operatorDashboard().enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (r.isSuccessful() && r.body() != null) {
+                    JsonObject x = r.body();
+                    tvStatPending.setText(String.valueOf(
+                            x.has("pendingReservations") ? x.get("pendingReservations").getAsInt() : 0));
+                    tvStatApproved.setText(String.valueOf(
+                            x.has("approvedReservations") ? x.get("approvedReservations").getAsInt() : 0));
+                    tvStatToday.setText(String.valueOf(
+                            x.has("todayBookings") ? x.get("todayBookings").getAsInt() : 0));
+                }
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); }
+        });
     }
-    new AlertDialog.Builder(OperatorActivity.this)
-     .setTitle("Select slot")
-     .setItems(l, (d, w) -> capacityDialog(a.get(w).getAsJsonObject()))
-     .show();
-   }
-   public void onFailure(Call<JsonElement> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
 
- void capacityDialog(JsonObject x) {
-  EditText e = new EditText(this);
-  e.setHint("Available capacity kWh");
-  e.setText(String.valueOf(ApiUtils.num(x, "availableCapacityKwh")));
-  new AlertDialog.Builder(this)
-   .setTitle("Update availability")
-   .setMessage("Slot: " + ApiUtils.str(x, "id"))
-   .setView(e)
-   .setNegativeButton("CANCEL", null)
-   .setPositiveButton("SAVE", (d, w) -> {
-    try { update(ApiUtils.str(x, "id"), Double.parseDouble(e.getText().toString())); }
-    catch (Exception ex) { toast("Enter a valid number"); }
-   }).show();
- }
+    // ── QR Scanner ────────────────────────────────────────
+    private void startScan() {
+        ScanOptions opts = new ScanOptions();
+        opts.setPrompt("Scan Prosumer Transaction QR");
+        opts.setBeepEnabled(true);
+        opts.setOrientationLocked(false);
+        opts.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        scanLauncher.launch(opts);
+    }
 
- void update(String id, double k) {
-  loading.show(OperatorActivity.this);
-  ApiClient.get().updateAvailability(id, k).enqueue(new Callback<JsonObject>() {
-   public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
-    loading.hide();
-    if (r.isSuccessful()) toast("Availability updated");
-    else toast(ApiUtils.error(r));
-   }
-   public void onFailure(Call<JsonObject> c, Throwable t) { loading.hide(); fail(t); }
-  });
- }
+    private void verifyQr(String qrToken) {
+        JsonObject body = new JsonObject();
+        body.addProperty("qrToken", qrToken);
+        showLoading();
+        ApiClient.get().verifyQr(body).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                JsonObject x   = r.body();
+                JsonObject res = x.has("reservation") && x.get("reservation").isJsonObject()
+                        ? x.getAsJsonObject("reservation") : new JsonObject();
+                new AlertDialog.Builder(OperatorActivity.this)
+                        .setTitle("✅ QR Verified")
+                        .setMessage("📋 Transaction: " + ApiUtils.str(x, "transactionCode")
+                                + "\n🔖 Reservation: " + ApiUtils.str(res, "reservationCode")
+                                + "\n⚡ Energy: " + fmt(ApiUtils.num(res, "energyAmountKwh")) + " kWh"
+                                + "\n🔖 Status: " + ApiUtils.str(res, "status"))
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Finalize Transfer", (d, w) -> completeQr(qrToken))
+                        .show();
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void completeQr(String qrToken) {
+        JsonObject body = new JsonObject();
+        body.addProperty("qrToken", qrToken);
+        showLoading();
+        ApiClient.get().completeQr(body).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (!r.isSuccessful()) { toast(errorMsg(r)); return; }
+                toast("✅ Energy transfer completed successfully!");
+                loadDashboard();
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    // ── Reservations ──────────────────────────────────────
+    private void showReservations(String status) {
+        showLoading();
+        ApiClient.get().reservationsByStatus(status).enqueue(new Callback<JsonElement>() {
+            @Override
+            public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
+                hideLoading();
+                if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
+                JsonArray a = r.body().getAsJsonArray();
+                if (a.size() == 0) { toast("No " + status.toLowerCase() + " reservations"); return; }
+
+                String[] labels = new String[a.size()];
+                for (int i = 0; i < a.size(); i++) {
+                    JsonObject x = a.get(i).getAsJsonObject();
+                    labels[i] = statusIcon(ApiUtils.str(x, "status"))
+                            + " " + ApiUtils.str(x, "reservationCode")
+                            + "  ⚡ " + fmt(ApiUtils.num(x, "energyAmountKwh")) + " kWh";
+                }
+                new AlertDialog.Builder(OperatorActivity.this)
+                        .setTitle(status + " Reservations")
+                        .setItems(labels, (d, w) -> reservationDetail(a.get(w).getAsJsonObject()))
+                        .show();
+            }
+            @Override
+            public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void reservationDetail(JsonObject x) {
+        new AlertDialog.Builder(this)
+                .setTitle(ApiUtils.str(x, "reservationCode"))
+                .setMessage("👤 Prosumer: " + ApiUtils.str(x, "prosumerId")
+                        + "\n🗺 Node: " + ApiUtils.str(x, "nodeId")
+                        + "\n📅 Date: " + shortDate(ApiUtils.str(x, "reservationDate"))
+                        + "\n⏱ " + ApiUtils.str(x, "startTime")
+                        + " – " + ApiUtils.str(x, "endTime")
+                        + "\n⚡ Energy: " + fmt(ApiUtils.num(x, "energyAmountKwh")) + " kWh"
+                        + "\n🔖 Status: " + ApiUtils.str(x, "status"))
+                .setPositiveButton("Close", null)
+                .show();
+    }
+
+    // ── Energy Slots ──────────────────────────────────────
+    private void showSlots(boolean availableOnly) {
+        showLoading();
+        ApiClient.get().operatorSlots("", availableOnly).enqueue(new Callback<JsonElement>() {
+            @Override
+            public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
+                hideLoading();
+                if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
+                JsonArray a = r.body().getAsJsonArray();
+                if (a.size() == 0) { toast("No slots found"); return; }
+
+                String[] labels = new String[a.size()];
+                for (int i = 0; i < a.size(); i++) {
+                    JsonObject x = a.get(i).getAsJsonObject();
+                    labels[i] = "📅 " + shortDate(ApiUtils.str(x, "slotDate"))
+                            + "  ⏱ " + ApiUtils.str(x, "startTime")
+                            + "  ⚡ " + fmt(ApiUtils.num(x, "availableCapacityKwh")) + " kWh";
+                }
+
+                String title = availableOnly ? "Available Slots" : "Select Slot to Update";
+                new AlertDialog.Builder(OperatorActivity.this)
+                        .setTitle(title)
+                        .setItems(labels, availableOnly ? null
+                                : (d, w) -> capacityDialog(a.get(w).getAsJsonObject()))
+                        .setPositiveButton("Close", null)
+                        .show();
+            }
+            @Override
+            public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void capacityDialog(JsonObject slot) {
+        EditText et = new EditText(this);
+        et.setHint("New capacity (kWh)");
+        et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        et.setText(fmt(ApiUtils.num(slot, "availableCapacityKwh")));
+
+        new AlertDialog.Builder(this)
+                .setTitle("Update Slot Availability")
+                .setMessage("Slot ID: " + ApiUtils.str(slot, "id"))
+                .setView(et)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", (d, w) -> {
+                    try { updateSlot(ApiUtils.str(slot, "id"),
+                            Double.parseDouble(et.getText().toString()));
+                    } catch (Exception e) { toast("Enter a valid number"); }
+                }).show();
+    }
+
+    private void updateSlot(String id, double capacity) {
+        showLoading();
+        ApiClient.get().updateAvailability(id, capacity).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (r.isSuccessful()) toast("✅ Slot availability updated");
+                else toast(errorMsg(r));
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    // ── Helpers ────────────────────────────────────────────
+    private String shortDate(String s) {
+        return (s != null && s.length() >= 10) ? s.substring(0, 10) : s;
+    }
+
+    private String fmt(double d) {
+        return d == (long) d ? String.valueOf((long) d) : String.valueOf(d);
+    }
+
+    private String statusIcon(String status) {
+        if ("Approved".equalsIgnoreCase(status))  return "✅";
+        if ("Pending".equalsIgnoreCase(status))   return "⏳";
+        if ("Completed".equalsIgnoreCase(status)) return "🏁";
+        if ("Cancelled".equalsIgnoreCase(status)) return "❌";
+        return "•";
+    }
 }
