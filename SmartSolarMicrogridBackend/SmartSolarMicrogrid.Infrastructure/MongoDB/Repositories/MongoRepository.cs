@@ -7,4 +7,5 @@ public abstract class MongoRepository<T> where T: class {
     public Task<T?> GetByIdAsync(string id) => Collection.Find(Builders<T>.Filter.Eq("_id", id)).FirstOrDefaultAsync();
     public Task InsertAsync(T item) => Collection.InsertOneAsync(item);
     public Task ReplaceAsync(string id,T item) => Collection.ReplaceOneAsync(Builders<T>.Filter.Eq("_id", id),item);
+    public Task DeleteAsync(string id) => Collection.DeleteOneAsync(Builders<T>.Filter.Eq("_id", id));
 }

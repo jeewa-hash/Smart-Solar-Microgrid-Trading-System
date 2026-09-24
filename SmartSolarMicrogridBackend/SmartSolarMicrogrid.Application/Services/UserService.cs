@@ -66,4 +66,42 @@ public class UserService : IUserService
             })
             .OrderByDescending(u => u.CreatedAt);
     }
+
+    public async Task<UserResponseDto> UpdateUserAsync(string id, UpdateUserDto request)
+    {
+        var user = await _users.GetByIdAsync(id);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+
+        if (request.Role.HasValue)
+            user.Role = request.Role.Value;
+            
+        if (request.Status.HasValue)
+            user.Status = request.Status.Value;
+
+        if (!string.IsNullOrEmpty(request.Password))
+            user.PasswordHash = _hasher.Hash(request.Password);
+
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _users.ReplaceAsync(id, user);
+
+        return new UserResponseDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Role = user.Role,
+            Status = user.Status,
+            CreatedAt = user.CreatedAt
+        };
+    }
+
+    public async Task DeleteUserAsync(string id)
+    {
+        var user = await _users.GetByIdAsync(id);
+        if (user == null)
+            throw new KeyNotFoundException("User not found.");
+            
+        await _users.DeleteAsync(id);
+    }
 }
