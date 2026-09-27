@@ -1,6 +1,7 @@
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class MicrogridNode {
+    public string? DeactivationReason { get; set; }
     public string Id { get; set; } = "";
     public string NodeCode { get; set; } = "";
     public string NodeName { get; set; } = "";
