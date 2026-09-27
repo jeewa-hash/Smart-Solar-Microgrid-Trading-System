@@ -9,6 +9,10 @@ using SmartSolarMicrogrid.Application.Services;
 using SmartSolarMicrogrid.Infrastructure.MongoDB;
 using SmartSolarMicrogrid.Infrastructure.MongoDB.Repositories;
 using SmartSolarMicrogrid.Infrastructure.Security;
+using MongoDB.Bson.Serialization.Conventions;
+
+var conventionPack = new ConventionPack { new IgnoreExtraElementsConvention(true) };
+ConventionRegistry.Register("IgnoreExtraElements", conventionPack, type => true);
 
 var builder=WebApplication.CreateBuilder(args);
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));

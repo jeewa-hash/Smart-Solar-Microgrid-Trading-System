@@ -50,7 +50,7 @@ public class LoginActivity extends BaseActivity {
 
     private void updateServerSettingsLabel() {
         if (tvServerSettings != null) {
-            tvServerSettings.setText("⚙ Server: " + session.getBaseUrl());
+            tvServerSettings.setText("");
         }
     }
 
