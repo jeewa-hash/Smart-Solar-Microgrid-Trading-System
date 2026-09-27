@@ -40,9 +40,38 @@
         <item name="shapeAppearanceSmallComponent">@style/Shape.Small</item>
         <item name="shapeAppearanceMediumComponent">@style/Shape.Medium</item>
         <item name="shapeAppearanceLargeComponent">@style/Shape.Large</item>
+        
+        <!-- Dialog Theme -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.SmartSolar.MaterialAlertDialog</item>
+    </style>
+
+    <!-- ════ Dialog Theme Overlay ════ -->
+    <style name="ThemeOverlay.SmartSolar.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">#B3FFFFFF</item>
+        <item name="colorSurfaceVariant">#B3FFFFFF</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorPrimary">@color/primary</item>
+        <item name="android:background">#B3FFFFFF</item>
+        <item name="android:backgroundTint">#B3FFFFFF</item>
+        <item name="colorSurfaceContainerHigh">#B3FFFFFF</item>
+        <item name="colorSurfaceContainer">#B3FFFFFF</item>
+        <item name="android:windowBlurBehindEnabled">true</item>
+        <item name="android:windowBlurBehindRadius">20dp</item>
+        <item name="android:backgroundDimAmount">0.45</item>
+        <item name="shapeAppearance">@style/Shape.Dialog</item>
+        <item name="android:windowAnimationStyle">@style/DialogAnimation</item>
+    </style>
+
+    <style name="DialogAnimation" parent="android:Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/dialog_exit</item>
     </style>
 
     <!-- ════ Shapes ════ -->
+    <style name="Shape.Dialog" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">28dp</item>
+    </style>
     <style name="Shape.Small" parent="ShapeAppearance.Material3.SmallComponent">
         <item name="cornerSize">8dp</item>
     </style>

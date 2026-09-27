@@ -111,7 +111,7 @@ public class ProsumerActivity extends BaseActivity {
                             + "  ⏱ " + ApiUtils.str(s, "startTime") + "–" + ApiUtils.str(s, "endTime")
                             + "  ⚡ " + fmt(ApiUtils.num(s, "availableCapacityKwh")) + " kWh";
                 }
-                new AlertDialog.Builder(ProsumerActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerActivity.this)
                         .setTitle("Available Energy Slots")
                         .setItems(labels, (d, w) -> energyDialog(a.get(w).getAsJsonObject()))
                         .show();
@@ -126,7 +126,7 @@ public class ProsumerActivity extends BaseActivity {
         et.setHint("Energy amount (kWh)");
         et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Reserve Slot")
                 .setMessage("📅 " + shortDate(ApiUtils.str(slot, "slotDate"))
                         + "\n⏱ " + ApiUtils.str(slot, "startTime")
@@ -163,27 +163,33 @@ public class ProsumerActivity extends BaseActivity {
 
     // ── Filter / search bookings ───────────────────────────
     private void filterBookings() {
-        EditText search = new EditText(this);
-        search.setHint("Search code or node ID (optional)");
-        Spinner spinner = new Spinner(this);
-        String[] opts = {"All", "Pending", "Approved", "Cancelled", "Completed"};
-        spinner.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, opts));
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(32, 16, 32, 0);
-        box.addView(search);
-        box.addView(spinner);
+        android.view.View view = getLayoutInflater().inflate(R.layout.dialog_filter_bookings, null);
+        com.google.android.material.textfield.TextInputEditText search = view.findViewById(R.id.etSearch);
+        AutoCompleteTextView spinner = view.findViewById(R.id.spinStatus);
 
-        new AlertDialog.Builder(this)
+        String[] opts = {"All", "Pending", "Approved", "Rejected", "Cancelled", "Completed"};
+        spinner.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, opts));
+
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Search & Filter Bookings")
-                .setView(box)
-                .setNegativeButton("Close", null)
-                .setPositiveButton("Search", (d, w) -> {
-                    String st = spinner.getSelectedItem().toString();
+                .setView(view)
+                .setNeutralButton("Reset", null)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Apply", (d, w) -> {
+                    String st = spinner.getText().toString();
                     loadBookings(search.getText().toString().trim(),
                             "All".equals(st) ? "" : st);
-                }).show();
+                }).create();
+        
+        dialog.setOnShowListener(d -> {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                search.setText("");
+                spinner.setText("All", false);
+            });
+        });
+        
+        dialog.show();
     }
 
     private void loadBookings(String searchText, String statusFilter) {
@@ -204,7 +210,7 @@ public class ProsumerActivity extends BaseActivity {
                                     + " " + ApiUtils.str(x, "reservationCode")
                                     + "  ·  " + shortDate(ApiUtils.str(x, "reservationDate"));
                         }
-                        new AlertDialog.Builder(ProsumerActivity.this)
+                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerActivity.this)
                                 .setTitle("My Bookings")
                                 .setItems(labels, (d, w) ->
                                         bookingActions(a.get(w).getAsJsonObject()))
@@ -217,7 +223,7 @@ public class ProsumerActivity extends BaseActivity {
 
     private void bookingActions(JsonObject r) {
         String status = ApiUtils.str(r, "status");
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(ApiUtils.str(r, "reservationCode")
                         + "  " + statusIcon(status) + " " + status)
                 .setMessage("📅 " + shortDate(ApiUtils.str(r, "reservationDate"))
@@ -238,14 +244,26 @@ public class ProsumerActivity extends BaseActivity {
 
     private void modifyDialog(JsonObject old) {
         EditText etSlot = new EditText(this); etSlot.setHint("New Slot ID");
+        etSlot.setPadding(32, 32, 32, 32);
+        etSlot.setBackgroundResource(android.R.drawable.edit_text);
+        
         EditText etAmt  = new EditText(this); etAmt.setHint("New Energy Amount (kWh)");
         etAmt.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        etAmt.setPadding(32, 32, 32, 32);
+        etAmt.setBackgroundResource(android.R.drawable.edit_text);
+        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 0, 24);
+        etSlot.setLayoutParams(params);
+        etAmt.setLayoutParams(params);
+        
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(32, 16, 32, 0);
         box.addView(etSlot); box.addView(etAmt);
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Modify Reservation")
                 .setMessage("Note: Modification requires at least 12 hours notice.")
                 .setView(box)
@@ -275,7 +293,7 @@ public class ProsumerActivity extends BaseActivity {
     }
 
     private void confirmCancel(String id) {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Cancel Booking?")
                 .setMessage("Cancellation requires at least 12 hours notice.")
                 .setNegativeButton("No", null)
@@ -326,7 +344,7 @@ public class ProsumerActivity extends BaseActivity {
             img.setImageBitmap(bmp);
         } catch (Exception e) { toast("QR generation error"); return; }
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Transaction QR Code")
                 .setMessage("📋 " + ApiUtils.str(q, "transactionCode")
                         + "\n\nShow this QR to the Grid Operator at the charging station.")
@@ -361,7 +379,7 @@ public class ProsumerActivity extends BaseActivity {
                 addLabeled(box, "Phone", etPhone);
                 addLabeled(box, "Address", etAddr);
 
-                new AlertDialog.Builder(ProsumerActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerActivity.this)
                         .setTitle("My Profile  ·  NIC: " + session.nic())
                         .setView(box)
                         .setNegativeButton("Close", null)
@@ -395,7 +413,7 @@ public class ProsumerActivity extends BaseActivity {
 
     // ── Deactivation ───────────────────────────────────────
     private void deactivate() {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Request Account Deactivation")
                 .setMessage("This will send a deactivation request to Backoffice for review.")
                 .setNegativeButton("Cancel", null)
@@ -419,7 +437,7 @@ public class ProsumerActivity extends BaseActivity {
 
     // ── UI utility helpers ─────────────────────────────────
     private void showSummary(String title, JsonObject r) {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(title)
                 .setMessage("📋 " + ApiUtils.str(r, "reservationCode")
                         + "\n🔖 Status: " + ApiUtils.str(r, "status")
@@ -432,6 +450,8 @@ public class ProsumerActivity extends BaseActivity {
     private EditText makeField(String value) {
         EditText et = new EditText(this);
         et.setText(value);
+        et.setPadding(32, 32, 32, 32);
+        et.setBackgroundResource(android.R.drawable.edit_text);
         return et;
     }
 
@@ -439,9 +459,14 @@ public class ProsumerActivity extends BaseActivity {
         TextView tv = new TextView(this);
         tv.setText(label);
         tv.setTextColor(0xFF1B6B4A);
-        tv.setTextSize(12f);
-        tv.setPadding(0, 12, 0, 2);
+        tv.setTextSize(14f);
+        tv.setPadding(0, 24, 0, 4);
         parent.addView(tv);
+        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 0, 16);
+        et.setLayoutParams(params);
         parent.addView(et);
     }
 

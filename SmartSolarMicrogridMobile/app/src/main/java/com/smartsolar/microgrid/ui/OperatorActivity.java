@@ -109,7 +109,7 @@ public class OperatorActivity extends BaseActivity {
                 JsonObject x   = r.body();
                 JsonObject res = x.has("reservation") && x.get("reservation").isJsonObject()
                         ? x.getAsJsonObject("reservation") : new JsonObject();
-                new AlertDialog.Builder(OperatorActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(OperatorActivity.this)
                         .setTitle("✅ QR Verified")
                         .setMessage("📋 Transaction: " + ApiUtils.str(x, "transactionCode")
                                 + "\n🔖 Reservation: " + ApiUtils.str(res, "reservationCode")
@@ -159,7 +159,7 @@ public class OperatorActivity extends BaseActivity {
                             + " " + ApiUtils.str(x, "reservationCode")
                             + "  ⚡ " + fmt(ApiUtils.num(x, "energyAmountKwh")) + " kWh";
                 }
-                new AlertDialog.Builder(OperatorActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(OperatorActivity.this)
                         .setTitle(status + " Reservations")
                         .setItems(labels, (d, w) -> reservationDetail(a.get(w).getAsJsonObject()))
                         .show();
@@ -170,7 +170,7 @@ public class OperatorActivity extends BaseActivity {
     }
 
     private void reservationDetail(JsonObject x) {
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(ApiUtils.str(x, "reservationCode"))
                 .setMessage("👤 Prosumer: " + ApiUtils.str(x, "prosumerId")
                         + "\n🗺 Node: " + ApiUtils.str(x, "nodeId")
@@ -248,7 +248,7 @@ public class OperatorActivity extends BaseActivity {
                 }
 
                 String title = availableOnly ? "Available Slots" : "Select Slot to Update";
-                new AlertDialog.Builder(OperatorActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(OperatorActivity.this)
                         .setTitle(title)
                         .setItems(labels, availableOnly ? null
                                 : (d, w) -> capacityDialog(a.get(w).getAsJsonObject()))
@@ -265,11 +265,18 @@ public class OperatorActivity extends BaseActivity {
         et.setHint("New capacity (kWh)");
         et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         et.setText(fmt(ApiUtils.num(slot, "availableCapacityKwh")));
+        et.setPadding(32, 32, 32, 32);
+        et.setBackgroundResource(android.R.drawable.edit_text);
+        
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(32, 16, 32, 0);
+        box.addView(et);
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Update Slot Availability")
                 .setMessage("Slot ID: " + ApiUtils.str(slot, "id"))
-                .setView(et)
+                .setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     try { updateSlot(ApiUtils.str(slot, "id"),
