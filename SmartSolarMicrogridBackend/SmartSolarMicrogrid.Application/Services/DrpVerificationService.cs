@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using SmartSolarMicrogrid.Application.Interfaces;
 using System.Text.RegularExpressions;
+using System.Net.Http.Json;
 
 namespace SmartSolarMicrogrid.Application.Services;
 
@@ -13,7 +14,7 @@ public class DrpVerificationService : IDrpVerificationService {
 
     public async Task<DrpVerificationResult> VerifyNicAsync(string nic, string fullName) {
         bool useLiveApi = _config.GetValue<bool>("DrpVerification:UseLiveDrpApi", true);
-        string baseUrl = _config.GetValue<string>("DrpVerification:DrpEndpoint", "https://induwara.lk/api/v1/nic/");
+        string baseUrl = _config.GetValue<string>("DrpVerification:DrpEndpoint", "https://induwara.lk/api/v1/nic/")!;
         string endpoint = baseUrl.EndsWith("/") ? $"{baseUrl}{nic}" : $"{baseUrl}/{nic}";
 
         if (useLiveApi) {
@@ -41,7 +42,7 @@ public class DrpVerificationService : IDrpVerificationService {
                 } else {
                     return new DrpVerificationResult(false, "", null, null, null, null, $"Real API Error: {response.StatusCode} - Invalid NIC or API limit reached.");
                 }
-            } catch (Exception ex) {
+            } catch (Exception) {
                 return SimulateDrpVerification(nic, fullName); // Fallback to avoid crashing presentation
             }
         } else {
@@ -51,12 +52,12 @@ public class DrpVerificationService : IDrpVerificationService {
 
     private class InduwaraApiResponse {
         public bool Ok { get; set; }
-        public InduwaraData Data { get; set; }
+        public InduwaraData? Data { get; set; }
     }
     private class InduwaraData {
-        public string DateOfBirth { get; set; }
-        public string Gender { get; set; }
-        public InduwaraAge Age { get; set; }
+        public string? DateOfBirth { get; set; }
+        public string? Gender { get; set; }
+        public InduwaraAge? Age { get; set; }
         public int Serial { get; set; }
     }
     private class InduwaraAge {

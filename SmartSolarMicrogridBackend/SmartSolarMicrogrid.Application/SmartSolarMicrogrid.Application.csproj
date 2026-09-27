@@ -8,4 +8,7 @@
     <ProjectReference Include="..\SmartSolarMicrogrid.Domain\SmartSolarMicrogrid.Domain.csproj" />
     <ProjectReference Include="..\SmartSolarMicrogrid.Infrastructure\SmartSolarMicrogrid.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Net.Http.Json" Version="10.0.12" />
+  </ItemGroup>
 </Project>
