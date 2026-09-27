@@ -123,10 +123,10 @@ public class LoginActivity extends BaseActivity {
         });
     }
 
-    /** Pull NIC from response JSON or decode it from the JWT payload */
+    /** Pull NIC from response JSON or decode it from the JWT payload or inputs */
     private String resolveNic(JsonObject x, String token) {
         String n = ApiUtils.str(x, "nic");
-        if (!n.isEmpty()) return n;
+        if (!n.isEmpty()) return com.smartsolar.microgrid.util.NicValidator.format(n);
 
         try {
             String[] parts = token.split("[.]");
@@ -139,14 +139,29 @@ public class LoginActivity extends BaseActivity {
                         java.nio.charset.StandardCharsets.UTF_8);
 
                 JsonObject p = new JsonParser().parse(raw).getAsJsonObject();
-                if (p.has("nic"))    return p.get("nic").getAsString();
-                if (p.has("nameid")) return p.get("nameid").getAsString();
+                if (p.has("nic"))    return com.smartsolar.microgrid.util.NicValidator.format(p.get("nic").getAsString());
+                if (p.has("nameid")) {
+                    String v = p.get("nameid").getAsString();
+                    if (com.smartsolar.microgrid.util.NicValidator.isValid(v)) return com.smartsolar.microgrid.util.NicValidator.format(v);
+                }
                 String claim = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
-                if (p.has(claim))    return p.get(claim).getAsString();
+                if (p.has(claim)) {
+                    String v = p.get(claim).getAsString();
+                    if (com.smartsolar.microgrid.util.NicValidator.isValid(v)) return com.smartsolar.microgrid.util.NicValidator.format(v);
+                }
             }
         } catch (Exception ignored) {}
 
-        return getSharedPreferences("login_meta", 0).getString("nic", "");
+        String cached = getSharedPreferences("login_meta", 0).getString("nic", "");
+        if (!cached.isEmpty()) return com.smartsolar.microgrid.util.NicValidator.format(cached);
+
+        // If the username entered was the prosumer's NIC
+        String enteredUser = val(tilUsername);
+        if (com.smartsolar.microgrid.util.NicValidator.isValid(enteredUser)) {
+            return com.smartsolar.microgrid.util.NicValidator.format(enteredUser);
+        }
+
+        return "";
     }
 
     private void openRole(String role) {

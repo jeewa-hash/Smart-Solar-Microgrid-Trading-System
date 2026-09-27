@@ -9,6 +9,10 @@ public class Prosumer {
     public string Address { get; set; } = "";
     public string UserId { get; set; } = "";
     public UserStatus AccountStatus { get; set; } = UserStatus.Pending;
+    public bool IsDrpVerified { get; set; } = false;
+    public string DrpVerificationRef { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public string NicFrontImageBase64 { get; set; } = "";
+    public string NicBackImageBase64 { get; set; } = "";
 }
