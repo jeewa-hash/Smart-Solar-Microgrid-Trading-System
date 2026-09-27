@@ -1,17 +1,139 @@
 import React,{useEffect,useState} from "react";
 import {Routes,Route,Navigate,useNavigate,useLocation} from "react-router-dom";
 import {api,user} from "./api";
-import {Sun,LayoutDashboard,Users,MapPin,Battery,CalendarDays,QrCode,LogOut,Menu,X,ShieldCheck,Activity,UserPlus} from "lucide-react";
+import {Sun,LayoutDashboard,Users,MapPin,Battery,CalendarDays,QrCode,LogOut,Menu,X,ShieldCheck,Activity,UserPlus,Eye,EyeOff,AlertTriangle,Search} from "lucide-react";
 
 const save=(d)=>{localStorage.setItem("token",d.token);localStorage.setItem("user",JSON.stringify(d));};
 const logout=()=>{localStorage.clear();location.href="/login"};
 const auth=(roles)=>{const u=user();if(!localStorage.getItem("token"))return <Navigate to="/login"/>;if(roles&&!roles.includes(u?.role))return <Navigate to={u?.role==="Backoffice"?"/backoffice":"/operator"}/>;return null};
 
-function Login(){const [f,setF]=useState({username:"admin",password:"Admin@123"}),[e,setE]=useState("");const n=useNavigate();async function go(x){x.preventDefault();try{const r=await api.post("/auth/login",f);save(r.data);n(r.data.role==="Backoffice"?"/backoffice":"/operator")}catch(e){setE(e.response?.data?.error||"Login failed")}}return <div className="login"><div className="loginbox"><div className="logo"><Sun/></div><h1>Smart Solar</h1><p>Microgrid Trading System</p>{e&&<div className="err">{e}</div>}<form onSubmit={go}><label>Username<input value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></label><label>Password<input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button>Sign in</button></form><small>Backoffice: admin / Admin@123<br/>Operator: operator1 / Operator@123</small></div></div>}
+function Login(){
+  const [f,setF]=useState({username:"",password:""}),[e,setE]=useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const n=useNavigate();
+  async function go(x){
+    x.preventDefault();
+    try{
+      const r=await api.post("/auth/login",f);
+      save(r.data);
+      n(r.data.role==="Backoffice"?"/backoffice":"/operator");
+    }catch(e){
+      setE(e.response?.data?.error||"Login failed");
+    }
+  }
+  return (
+    <div className="login">
+      <div className="loginbox">
+        <div className="logo"><Sun/></div>
+        <h1>Smart Solar</h1>
+        <p>Microgrid Trading System</p>
+        {e&&<div className="err">{e}</div>}
+        <form onSubmit={go}>
+          <label>Username
+            <input
+              value={f.username}
+              onChange={e=>setF({...f,username:e.target.value})}
+              placeholder="Enter username"
+              required
+            />
+          </label>
+          <label>Password
+            <div className="password-wrapper">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={f.password}
+                onChange={e=>setF({...f,password:e.target.value})}
+                placeholder="Enter password"
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={()=>setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+              </button>
+            </div>
+          </label>
+          <button type="submit">Sign in</button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const links={Backoffice:[["/backoffice","Dashboard",LayoutDashboard],["/backoffice/users","User Management",UserPlus],["/backoffice/prosumers","Prosumer Management",Users],["/backoffice/stations","Microgrid Nodes",MapPin],["/backoffice/slots","Energy Slots",Battery],["/backoffice/reservations","Reservations",CalendarDays]],GridOperator:[["/operator","Dashboard",LayoutDashboard],["/operator/bookings","Bookings",CalendarDays],["/operator/availability","Availability",Battery],["/operator/qr","QR Verification",QrCode]]};
 
-function Shell({role}){const n=useNavigate(),l=useLocation(),[open,setOpen]=useState(false);return <div><aside className={open?"side open":"side"}><div className="brand"><Sun/> Smart Solar</div>{links[role].map(([p,t,I])=><button className={l.pathname===p?"nav active":"nav"} onClick={()=>{n(p);setOpen(false)}} key={p}><I/> {t}</button>)}<button className="nav bottom" onClick={logout}><LogOut/> Logout</button></aside>{open&&<div className="overlay" onClick={()=>setOpen(false)}/>}<main className="main"><header><button className="hamb" onClick={()=>setOpen(true)}><Menu/></button><span>Smart Solar Microgrid Trading System</span><b>{user()?.username}</b></header><section><Routes>{role==="Backoffice"?<><Route index element={<BOHome/>}/><Route path="users" element={<UserMgmt/>}/><Route path="prosumers" element={<Pros/>}/><Route path="stations" element={<Stations/>}/><Route path="slots" element={<Slots/>}/><Route path="reservations" element={<Res/>}/></>:<><Route index element={<OpHome/>}/><Route path="bookings" element={<Bookings/>}/><Route path="availability" element={<Avail/>}/><Route path="qr" element={<QR/>}/></>}</Routes></section></main></div>}
+function Shell({role}){
+  const n=useNavigate(),l=useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(()=>{ setMobileOpen(false); }, [l.pathname]);
+
+  const toggleSidebar = () => {
+    if (window.innerWidth <= 1024) {
+      setMobileOpen(prev => !prev);
+    } else {
+      setCollapsed(prev => !prev);
+    }
+  };
+
+  return (
+    <div className="app-shell">
+      <aside className={`side ${mobileOpen ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
+        <div className="brand">
+          <div className="brand-text">
+            <Sun size={26}/>
+            <span className="brand-title">Smart Solar</span>
+          </div>
+          <button className="side-close" onClick={()=>setMobileOpen(false)} aria-label="Close menu">
+            <X size={20}/>
+          </button>
+        </div>
+        {links[role].map(([p,t,I])=>(
+          <button
+            className={l.pathname===p?"nav active":"nav"}
+            onClick={()=>{n(p);setMobileOpen(false)}}
+            key={p}
+            title={t}
+          >
+            <I size={20} className="nav-icon"/>
+            <span className="nav-text">{t}</span>
+          </button>
+        ))}
+        <button className="nav bottom" onClick={logout} title="Logout">
+          <LogOut size={20} className="nav-icon"/>
+          <span className="nav-text">Logout</span>
+        </button>
+      </aside>
+      {mobileOpen && <div className="overlay" onClick={()=>setMobileOpen(false)}/>}
+      <main className={`main ${collapsed ? "collapsed" : ""}`}>
+        <header>
+          <div className="header-left">
+            <button
+              className="hamb"
+              onClick={toggleSidebar}
+              aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
+              title={collapsed ? "Expand sidebar" : "Minimize sidebar"}
+            >
+              <Menu size={20}/>
+            </button>
+            <span className="header-title">Smart Solar Microgrid</span>
+          </div>
+          <b className="user-badge">{user()?.username}</b>
+        </header>
+        <section>
+          <Routes>
+            {role==="Backoffice"?<><Route index element={<BOHome/>}/><Route path="users" element={<UserMgmt/>}/><Route path="prosumers" element={<Pros/>}/><Route path="stations" element={<Stations/>}/><Route path="slots" element={<Slots/>}/><Route path="reservations" element={<Res/>}/></>:<><Route index element={<OpHome/>}/><Route path="bookings" element={<Bookings/>}/><Route path="availability" element={<Avail/>}/><Route path="qr" element={<QR/>}/></>}
+          </Routes>
+        </section>
+      </main>
+    </div>
+  );
+}
 
 function Guard({role}){return auth([role])||<Shell role={role}/>}
 
@@ -52,7 +174,7 @@ function UserMgmt() {
         setE("");
     }
     const fa = filter === "All Roles" ? a : a.filter(u => u.role === (filter === "Backoffice" ? 0 : 1));
-    return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value={0}>Backoffice</option><option value={1}>Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value={0}>Active</option><option value={1}>Inactive</option></select></label><div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === 0 ? "Backoffice" : "Grid Operator"}</td><td>{u.status === 0 ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button style={{marginRight:"5px",padding:"4px 8px"}} onClick={() => startEdit(u)}>Edit</button><button style={{background:"#ef4444",padding:"4px 8px"}} onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
+    return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value={0}>Backoffice</option><option value={1}>Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value={0}>Active</option><option value={1}>Inactive</option></select></label><div className="form-actions"><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div className="table-header"><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === 0 ? "Backoffice" : "Grid Operator"}</td><td>{u.status === 0 ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button className="btn-edit" onClick={() => startEdit(u)}>Edit</button><button className="btn-delete" onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
 }
 
 function Pros(){
@@ -73,19 +195,22 @@ function Pros(){
                 <td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td>
                 <td><span className="badge">{p.accountStatus === 0 ? "Pending" : p.accountStatus === 1 ? "Active" : "Inactive"}</span></td>
                 <td>
-                    {st === "Pending" && <button onClick={() => act(p.nic, "activate")}>Activate</button>}
-                    {st === "Active" && <button style={{ background: "#ef4444" }} onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
-                    {st === "Inactive" && <button onClick={() => act(p.nic, "reactivate")}>Reactivate</button>}
+                    {st === "Pending" && <button className="btn-success" onClick={() => act(p.nic, "activate")}>Activate</button>}
+                    {st === "Active" && <button className="btn-delete" onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
+                    {st === "Inactive" && <button className="btn-success" onClick={() => act(p.nic, "reactivate")}>Reactivate</button>}
                 </td>
             </tr>)}</tbody>
         </table>
         {!filtered.length && <p className="empty">No {st.toLowerCase()} prosumers found.</p>}
     </Table></>;
 }
-
 function Stations() {
     const [a, setA] = useState([]), [edit, setEdit] = useState(null), [err, setErr] = useState("");
-    
+    const [search, setSearch] = useState("");
+    const [deactModal, setDeactModal] = useState(null);
+    const [deactReason, setDeactReason] = useState("");
+    const [modalErr, setModalErr] = useState("");
+
     const getNextCode = (nodes) => {
         if (!nodes || nodes.length === 0) return "N-001";
         const max = Math.max(...nodes.map(n => {
@@ -106,8 +231,15 @@ function Stations() {
 
     async function saveF(e) {
         e.preventDefault();
-        if (f.scheduleStart >= f.scheduleEnd) return setErr("Start time must be before end time");
-        const b = { ...f, latitude: +f.latitude, longitude: +f.longitude, capacityKw: +f.capacityKw, batterySlotAvailability: +f.batterySlotAvailability };
+        const b = { 
+            ...f, 
+            latitude: +f.latitude, 
+            longitude: +f.longitude, 
+            capacityKw: +f.capacityKw, 
+            batterySlotAvailability: +f.batterySlotAvailability,
+            scheduleStart: f.scheduleStart || "08:00",
+            scheduleEnd: f.scheduleEnd || "18:00"
+        };
         try {
             if (edit) await api.put(`/microgrid-nodes/${edit}`, b);
             else await api.post("/microgrid-nodes", b);
@@ -119,28 +251,281 @@ function Stations() {
         }
     }
 
-    async function deact(id) {
-        if (window.confirm("Deactivate this node?")) {
-            try { await api.put(`/microgrid-nodes/${id}/deactivate`); setErr(""); load(); }
-            catch (x) { setErr(x.response?.data?.error || "Cannot deactivate node"); }
+    const suggestions = [
+        "Routine Maintenance",
+        "Grid Upgrading / Maintenance",
+        "Technical Fault / Breakdown",
+        "Emergency Safety Shutdown",
+        "Adverse Weather / Inspection"
+    ];
+
+    function openDeactivateModal(node) {
+        setDeactModal(node);
+        setDeactReason("Routine Maintenance");
+        setModalErr("");
+    }
+
+    async function confirmDeactivate(e) {
+        e.preventDefault();
+        if (!deactReason.trim()) {
+            setModalErr("Admin note / reason is required for deactivation.");
+            return;
+        }
+        try {
+            await api.put(`/microgrid-nodes/${deactModal.id}/deactivate`, { reason: deactReason.trim() });
+            setDeactModal(null);
+            setDeactReason("");
+            setModalErr("");
+            setErr("");
+            load();
+        } catch (x) {
+            setModalErr(x.response?.data?.error || "Cannot deactivate node");
         }
     }
 
-    const formFields = ["nodeCode", "nodeName", "latitude", "longitude", "capacityKw", "batterySlotAvailability", "scheduleStart", "scheduleEnd"];
-    const getMin = (k) => k === "latitude" ? "-90" : k === "longitude" ? "-180" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "0" : k.startsWith("schedule") ? "08:00" : undefined;
-    const getMax = (k) => k === "latitude" ? "90" : k === "longitude" ? "180" : k.startsWith("schedule") ? "20:00" : undefined;
-    const getStep = (k) => (k === "latitude" || k === "longitude") ? "0.0001" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "1" : undefined;
+    async function activate(id) {
+        try {
+            await api.put(`/microgrid-nodes/${id}/activate`);
+            setErr("");
+            load();
+        } catch (x) {
+            setErr(x.response?.data?.error || "Cannot activate node");
+        }
+    }
 
-    return <><Title t="Microgrid Nodes" d="Register and manage solar grid hubs" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Update" : "Register"} Station</h2>{err && <div className="err">{err}</div>}{formFields.map(k => <label key={k}>{k}<input required value={f[k] || ''} type={["latitude", "longitude", "capacityKw", "batterySlotAvailability"].includes(k) ? "number" : k.startsWith("schedule") ? "time" : "text"} min={getMin(k)} max={getMax(k)} step={getStep(k)} disabled={k === "nodeCode" && !!edit} onChange={e => setF({ ...f, [k]: e.target.value })} /></label>)}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}> {edit ? "Update" : "Create Node"} </button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Registered Nodes</h2><table><thead><tr><th>Code</th><th>Name</th><th>GPS</th><th>Capacity</th><th>Battery</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(x => <tr key={x.id}><td>{x.nodeCode}</td><td>{x.nodeName}</td><td>{x.latitude},{x.longitude}</td><td>{x.capacityKw} kW</td><td>{x.batterySlotAvailability}</td><td>{x.status === 0 ? "Active" : "Inactive"}</td><td><button style={{ marginRight: "5px", padding: "4px 8px" }} onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>{x.status === 0 && <button style={{ background: "#f59e0b", padding: "4px 8px" }} onClick={() => deact(x.id)}>Deactivate</button>}</td></tr>)}</tbody></table></Table></div></>;
+    const formFieldsConfig = [
+        { key: "nodeCode", label: "Node Code", type: "text", disabled: !!edit, placeholder: "e.g. N-003" },
+        { key: "nodeName", label: "Branch / Station Name", type: "text", placeholder: "e.g. Colombo Central Solar Hub" },
+        { key: "latitude", label: "Latitude", type: "number", min: "-90", max: "90", step: "0.0001", placeholder: "e.g. 6.9271" },
+        { key: "longitude", label: "Longitude", type: "number", min: "-180", max: "180", step: "0.0001", placeholder: "e.g. 79.8612" },
+        { key: "capacityKw", label: "Capacity (kW)", type: "number", min: "0.1", step: "0.1", placeholder: "e.g. 150" },
+        { key: "batterySlotAvailability", label: "Battery Slot Availability", type: "number", min: "0", step: "1", placeholder: "e.g. 20" }
+    ];
+
+    const filteredNodes = a.filter(x => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+            x.nodeCode?.toLowerCase().includes(q) ||
+            x.nodeName?.toLowerCase().includes(q) ||
+            (x.status === 0 ? "active" : "inactive").includes(q) ||
+            x.adminNote?.toLowerCase().includes(q) ||
+            x.deactivationReason?.toLowerCase().includes(q) ||
+            `${x.latitude},${x.longitude}`.includes(q)
+        );
+    });
+
+    const inactiveMatches = search.trim() ? filteredNodes.filter(x => x.status !== 0) : [];
+
+    return <>
+        <Title t="Microgrid Nodes" d="Register and manage solar grid hubs" />
+        <div className="grid2">
+            <form className="card" onSubmit={saveF}>
+                <h2>{edit ? "Update" : "Register"} Station</h2>
+                {err && <div className="err">{err}</div>}
+                {formFieldsConfig.map(({ key, label, type, min, max, step, placeholder, disabled }) => (
+                    <label key={key}>
+                        {label}
+                        <input
+                            required
+                            value={f[key] || ''}
+                            type={type}
+                            min={min}
+                            max={max}
+                            step={step}
+                            placeholder={placeholder}
+                            disabled={disabled}
+                            onChange={e => setF({ ...f, [key]: e.target.value })}
+                        />
+                    </label>
+                ))}
+                <div className="form-actions">
+                    <button type="submit" style={{flex:1}}> {edit ? "Update" : "Create Node"} </button>
+                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
+                </div>
+            </form>
+
+            <Table>
+                <div className="table-header">
+                    <h2 style={{ margin: 0 }}>Registered Nodes</h2>
+                    <div className="table-search-bar">
+                        <Search size={15}/>
+                        <input
+                            type="text"
+                            placeholder="Search branch name, code, note..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button type="button" onClick={() => setSearch("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0 4px", display: "flex", alignItems: "center" }}>
+                                <X size={14}/>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {inactiveMatches.length > 0 && (
+                    <div className="inactive-search-alert">
+                        <AlertTriangle size={20}/>
+                        <div>
+                            <strong>Deactivated Branch Notice:</strong>
+                            {inactiveMatches.map(n => (
+                                <div key={n.id} style={{ marginTop: '3px', fontSize: '13px' }}>
+                                    Hub <strong>{n.nodeCode} ({n.nodeName})</strong> is currently <u>Unavailable</u>.
+                                    <br/>
+                                    <strong>Admin Reason:</strong> {n.adminNote || n.deactivationReason || "Routine Maintenance"}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>GPS</th>
+                            <th>Capacity</th>
+                            <th>Battery</th>
+                            <th>Status</th>
+                            <th>Admin Note</th>
+                            <th style={{ textAlign: "right", paddingRight: "18px" }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredNodes.length > 0 ? filteredNodes.map(x => (
+                            <tr key={x.id}>
+                                <td><strong>{x.nodeCode}</strong></td>
+                                <td>{x.nodeName}</td>
+                                <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>{x.latitude}, {x.longitude}</td>
+                                <td>{x.capacityKw} kW</td>
+                                <td>{x.batterySlotAvailability}</td>
+                                <td>
+                                    <span className={`badge ${x.status === 0 ? "badge-active" : "badge-inactive"}`}>
+                                        {x.status === 0 ? "Active" : "Inactive"}
+                                    </span>
+                                </td>
+                                <td>
+                                    {x.status !== 0 ? (
+                                        <span className="reason-pill" title={`Admin Reason: ${x.adminNote || x.deactivationReason || "Routine Maintenance"}`}>
+                                            <AlertTriangle size={12} style={{ flexShrink: 0 }}/>
+                                            <span>{x.adminNote || x.deactivationReason || "Routine Maintenance"}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-dash">—</span>
+                                    )}
+                                </td>
+                                <td>
+                                    <div className="table-actions-cell" style={{ justifyContent: "flex-end" }}>
+                                        <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>
+                                        {x.status === 0 ? (
+                                            <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
+                                        ) : (
+                                            <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan="8" style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
+                                    No microgrid nodes matched your search.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </Table>
+        </div>
+
+        {/* Deactivation Modal with Mandatory Admin Note & Suggestions */}
+        {deactModal && (
+            <div className="modal-overlay" onClick={() => setDeactModal(null)}>
+                <div className="modal-card" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                        <h2>
+                            <AlertTriangle size={22}/>
+                            Deactivate Microgrid Node
+                        </h2>
+                        <button className="modal-close-btn" onClick={() => setDeactModal(null)}>
+                            <X size={20}/>
+                        </button>
+                    </div>
+
+                    <div className="modal-info-box">
+                        Deactivating <strong>{deactModal.nodeCode} — {deactModal.nodeName}</strong> will immediately set the hub to Inactive and automatically lock all related Energy Slots to <u>Unavailable</u>.
+                    </div>
+
+                    {modalErr && <div className="err" style={{ margin: "0 0 14px" }}>{modalErr}</div>}
+
+                    <form onSubmit={confirmDeactivate}>
+                        <span className="suggestion-chips-label">Quick Suggestions (Click to set reason):</span>
+                        <div className="suggestion-chips">
+                            {suggestions.map(s => (
+                                <button
+                                    key={s}
+                                    type="button"
+                                    className={`suggestion-chip ${deactReason === s ? "active" : ""}`}
+                                    onClick={() => setDeactReason(s)}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+
+                        <label style={{ display: "block", marginTop: 0 }}>
+                            <span style={{ fontWeight: 600, color: "#f8fafc" }}>Admin Note / Deactivation Reason * (Required):</span>
+                            <textarea
+                                required
+                                rows={3}
+                                style={{ width: "100%", marginTop: "8px", resize: "vertical" }}
+                                placeholder="Enter reason (e.g., Routine Maintenance, Grid Repair, etc.)..."
+                                value={deactReason}
+                                onChange={e => setDeactReason(e.target.value)}
+                            />
+                        </label>
+
+                        <div className="form-actions" style={{ marginTop: "20px" }}>
+                            <button
+                                type="submit"
+                                className="btn-delete"
+                                style={{ flex: 1, padding: "12px", fontSize: "14px", borderRadius: "12px" }}
+                            >
+                                Confirm Deactivation
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setDeactModal(null)}
+                                style={{ background: "#475569", flex: 1, padding: "12px", fontSize: "14px", borderRadius: "12px" }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+    </>;
 }
 
 function Slots(){
     const empty = {nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:"",availableCapacityKwh:"",status:"Available"};
     const [f,setF]=useState(empty),[nodes,setN]=useState([]),[a,setA]=useState([]),[edit,setEdit]=useState(null),[err,setErr]=useState("");
-    const load=()=>Promise.all([api.get("/microgrid-nodes?activeOnly=true"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});
+    const [search, setSearch] = useState("");
+
+    const load=()=>Promise.all([api.get("/microgrid-nodes"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});
     useEffect(()=>{load();},[]);
+
+    const selectedNode = nodes.find(n => n.id === f.nodeId);
+    const isSelectedNodeInactive = selectedNode && selectedNode.status !== 0;
+
     async function go(e){
         e.preventDefault();
+        if (edit && isSelectedNodeInactive && f.status === "Available") {
+            setErr(`Cannot set slot status to Available because microgrid node '${selectedNode.nodeName}' is deactivated (${selectedNode.adminNote || "Inactive"}).`);
+            return;
+        }
         try {
             const b = {...f, energyAmountKwh: +f.energyAmountKwh, slotDate: new Date(f.slotDate).toISOString()};
             if (edit) {
@@ -153,9 +538,12 @@ function Slots(){
             setEdit(null); setF(empty); setErr(""); load();
         } catch(x) { setErr(x.response?.data?.error || "Failed to save slot. Check inputs."); }
     }
+
     function startEdit(s) {
         const statuses = ["Available", "Reserved", "Unavailable", "Completed"];
         setEdit(s.id);
+        const nodeForSlot = nodes.find(n => n.id === s.nodeId);
+        const rawStatus = typeof s.status === 'number' ? statuses[s.status] : s.status;
         setF({
             nodeId: s.nodeId,
             slotDate: new Date(s.slotDate).toISOString().split('T')[0],
@@ -163,17 +551,180 @@ function Slots(){
             endTime: s.endTime,
             energyAmountKwh: s.energyAmountKwh,
             availableCapacityKwh: s.availableCapacityKwh,
-            status: typeof s.status === 'number' ? statuses[s.status] : s.status
+            status: (nodeForSlot && nodeForSlot.status !== 0 && rawStatus === "Available") ? "Unavailable" : rawStatus
         });
         setErr("");
     }
-    return <><Title t="Energy Slots" d="Create and monitor trading slots"/><div className="grid2"><form className="card" onSubmit={go}><h2>{edit ? "Edit Energy Slot" : "Create Energy Slot"}</h2>{err && <div className="err">{err}</div>}<label>Node<select required disabled={!!edit} value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}><option value="">Select</option>{nodes.map(n=><option value={n.id} key={n.id}>{n.nodeCode} — {n.nodeName}</option>)}</select></label><label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label><label>Start<input type="time" required value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label><label>End<input type="time" required value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label><label>Total Energy (kWh)<input required type="number" min="0.1" step="0.1" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label>{edit && <><label>Available (kWh)<input required type="number" min="0" step="0.1" max={f.energyAmountKwh} value={f.availableCapacityKwh} onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}/></label><label>Status<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="Available">Available</option><option value="Unavailable">Unavailable</option></select></label></>}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update Slot" : "Create Slot"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Energy Slots</h2><table><thead><tr><th>Date</th><th>Node</th><th>Time</th><th>Total</th><th>Available</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{new Date(s.slotDate).toLocaleDateString()}</td><td>{nodes.find(n=>n.id===s.nodeId)?.nodeCode||s.nodeId}</td><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td><span className="badge">{typeof s.status === 'number' ? ["Available", "Reserved", "Unavailable", "Completed"][s.status] : s.status}</span></td><td><button style={{padding:"4px 8px"}} onClick={()=>startEdit(s)}>Edit</button></td></tr>)}</tbody></table></Table></div></>}
 
-function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const load=()=>api.get(`/reservations/status/${st}`).then(x=>setA(x.data));useEffect(()=>{load();},[st]);return <><Title t="Reservations" d="Monitor and approve reservation workflow"/><Table><div className="tabs">{["Pending","Approved","Completed","Cancelled"].map(x=><button className={st===x?"selected":""} onClick={()=>setSt(x)} key={x}>{x}</button>)}</div><table><thead><tr><th>Code</th><th>Date</th><th>Time</th><th>Energy</th><th>Status</th><th/></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh} kWh</td><td><span className="badge">{r.status}</span></td><td>{st==="Pending"&&<button onClick={async()=>{await api.put(`/reservations/${r.id}/approve`);load()}}>Approve</button>}</td></tr>)}</tbody></table></Table></>}
+    const filteredSlots = a.filter(s => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        const node = nodes.find(n => n.id === s.nodeId);
+        return (
+            node?.nodeCode?.toLowerCase().includes(q) ||
+            node?.nodeName?.toLowerCase().includes(q) ||
+            node?.adminNote?.toLowerCase().includes(q) ||
+            s.startTime?.includes(q) ||
+            s.endTime?.includes(q) ||
+            new Date(s.slotDate).toLocaleDateString().includes(q)
+        );
+    });
+
+    return <>
+        <Title t="Energy Slots" d="Create and monitor trading slots"/>
+        <div className="grid2">
+            <form className="card" onSubmit={go}>
+                <h2>{edit ? "Edit Energy Slot" : "Create Energy Slot"}</h2>
+                {err && <div className="err">{err}</div>}
+
+                {isSelectedNodeInactive && (
+                    <div className="err" style={{ background: "rgba(245, 158, 11, 0.12)", borderColor: "rgba(245, 158, 11, 0.35)", color: "#fef08a" }}>
+                        <AlertTriangle size={18} style={{ flexShrink: 0 }}/>
+                        <div>
+                            <strong>Branch Deactivated:</strong> {selectedNode.nodeCode} ({selectedNode.nodeName}) is currently inactive.
+                            <div style={{ fontSize: "12px", marginTop: "3px" }}>
+                                Reason: <em>"{selectedNode.adminNote || selectedNode.deactivationReason || "Routine Maintenance"}"</em>. Slots cannot be made Available.
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <label>Node
+                    <select required disabled={!!edit} value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}>
+                        <option value="">Select Microgrid Node</option>
+                        {nodes.map(n=>{
+                            const isInactive = n.status !== 0;
+                            return (
+                                <option value={n.id} key={n.id} disabled={isInactive}>
+                                    {n.nodeCode} — {n.nodeName} {isInactive ? `⚠️ [Deactivated: ${n.adminNote || "Unavailable"}]` : ""}
+                                </option>
+                            );
+                        })}
+                    </select>
+                </label>
+                <label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label>
+                <label>Start<input type="time" required value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label>
+                <label>End<input type="time" required value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label>
+                <label>Total Energy (kWh)<input required type="number" min="0.1" step="0.1" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label>
+                {edit && (
+                    <>
+                        <label>Available (kWh)
+                            <input
+                                required
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                max={f.energyAmountKwh}
+                                value={f.availableCapacityKwh}
+                                disabled={isSelectedNodeInactive}
+                                onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}
+                            />
+                        </label>
+                        <label>Status
+                            <select
+                                value={f.status}
+                                disabled={isSelectedNodeInactive}
+                                onChange={e=>setF({...f,status:e.target.value})}
+                            >
+                                <option value="Available" disabled={isSelectedNodeInactive}>
+                                    Available {isSelectedNodeInactive ? "(Locked - Node Inactive)" : ""}
+                                </option>
+                                <option value="Unavailable">Unavailable</option>
+                            </select>
+                        </label>
+                    </>
+                )}
+                <div className="form-actions">
+                    <button type="submit" style={{flex:1}}>{edit ? "Update Slot" : "Create Slot"}</button>
+                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
+                </div>
+            </form>
+
+            <Table>
+                <div className="table-header">
+                    <h2 style={{ margin: 0 }}>Energy Slots</h2>
+                    <div className="table-search-bar">
+                        <Search size={16}/>
+                        <input
+                            type="text"
+                            placeholder="Filter by node, date..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                        {search && (
+                            <button type="button" onClick={() => setSearch("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0 4px", display: "flex", alignItems: "center" }}>
+                                <X size={14}/>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Node / Branch</th>
+                            <th>Time</th>
+                            <th>Total</th>
+                            <th>Available</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: "right", paddingRight: "18px" }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredSlots.length > 0 ? filteredSlots.map(s => {
+                            const node = nodes.find(n => n.id === s.nodeId);
+                            const isNodeInactive = node && node.status !== 0;
+                            const statusStr = typeof s.status === 'number' ? ["Available", "Reserved", "Unavailable", "Completed"][s.status] : s.status;
+                            return (
+                                <tr key={s.id}>
+                                    <td>{new Date(s.slotDate).toLocaleDateString()}</td>
+                                    <td>
+                                        <div className="cell-branch-stack">
+                                            <div className="branch-title-row">
+                                                <strong>{node?.nodeCode || s.nodeId}</strong>
+                                                {node?.nodeName && <span className="branch-subname">({node.nodeName})</span>}
+                                            </div>
+                                            {isNodeInactive && (
+                                                <span className="branch-inactive-tag" title={`Reason: ${node.adminNote || "Routine Maintenance"}`}>
+                                                    <AlertTriangle size={11} style={{ flexShrink: 0 }}/>
+                                                    <span>{node.adminNote || "Node Deactivated"}</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td>{s.startTime}–{s.endTime}</td>
+                                    <td>{s.energyAmountKwh} kWh</td>
+                                    <td>{s.availableCapacityKwh} kWh</td>
+                                    <td>
+                                        <span className={`badge ${statusStr === "Available" ? "badge-active" : "badge-inactive"}`}>
+                                            {statusStr}
+                                        </span>
+                                    </td>
+                                    <td style={{ textAlign: "right", paddingRight: "18px" }}>
+                                        <button className="btn-edit" onClick={()=>startEdit(s)}>Edit</button>
+                                    </td>
+                                </tr>
+                            );
+                        }) : (
+                            <tr>
+                                <td colSpan="7" style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
+                                    No energy slots found.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </Table>
+        </div>
+    </>;
+}
+
+function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const load=()=>api.get(`/reservations/status/${st}`).then(x=>setA(x.data));useEffect(()=>{load();},[st]);return <><Title t="Reservations" d="Monitor and approve reservation workflow"/><Table><div className="tabs">{["Pending","Approved","Completed","Cancelled"].map(x=><button className={st===x?"selected":""} onClick={()=>setSt(x)} key={x}>{x}</button>)}</div><table><thead><tr><th>Code</th><th>Date</th><th>Time</th><th>Energy</th><th>Status</th><th/></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh} kWh</td><td><span className="badge">{r.status}</span></td><td>{st==="Pending"&&<button className="btn-success" onClick={async()=>{await api.put(`/reservations/${r.id}/approve`);load()}}>Approve</button>}</td></tr>)}</tbody></table></Table></>}
 
 function OpHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/operator").then(x=>setD(x.data))},[]);return <><Title t="Grid Operator Dashboard" d="Operational station monitoring"/><div className="stats"><Stat t="Pending" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved" v={d.approvedReservations} I={ShieldCheck}/><Stat t="Today's Bookings" v={d.todayBookings} I={Activity}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/></div></>}
 function Bookings(){const[st,setSt]=useState("Approved"),[a,setA]=useState([]);useEffect(()=>{api.get(`/reservations/status/${st}`).then(x=>setA(x.data))},[st]);return <><Title t="Bookings" d="View pending and approved reservations"/><Table><div className="tabs"><button className={st==="Pending"?"selected":""} onClick={()=>setSt("Pending")}>Pending</button><button className={st==="Approved"?"selected":""} onClick={()=>setSt("Approved")}>Approved</button></div><table><thead><tr><th>Code</th><th>Node</th><th>Date</th><th>Time</th><th>Energy</th></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{r.nodeId}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh}</td></tr>)}</tbody></table></Table></>}
-function Avail(){const[a,setA]=useState([]);const load=()=>api.get("/energy-slots").then(x=>setA(x.data));useEffect(()=>{load();},[]);async function up(s){const v=prompt("Available capacity",s.availableCapacityKwh);if(v!=null){await api.put(`/energy-slots/${s.id}/availability?availableCapacityKwh=${v}`);load()}}return <><Title t="Energy Availability" d="Update battery and energy slot availability"/><Table><table><thead><tr><th>Slot</th><th>Total</th><th>Available</th><th>Status</th><th/></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td><td><button onClick={()=>up(s)}>Update</button></td></tr>)}</tbody></table></Table></>}
-function QR(){const[t,setT]=useState(""),[r,setR]=useState(null),[e,setE]=useState("");async function verify(){try{const x=await api.post("/qr/verify",{qrToken:t});setR(x.data);setE("")}catch(x){setE(x.response?.data?.error||"Invalid QR")}}async function complete(){try{const x=await api.post("/qr/complete",{qrToken:t});setR(x.data)}catch(x){setE(x.response?.data?.error||"Cannot complete")}}return <><Title t="QR Transaction Verification" d="Verify and finalize Prosumer energy transfers"/><div className="card qr"><QrCode size={48}/><textarea placeholder="Paste scanned QR token" value={t} onChange={e=>setT(e.target.value)}/>{e&&<div className="err">{e}</div>}<div><button onClick={verify}>Verify Transaction</button>{r?.valid&&<button onClick={complete}>Complete Transfer</button>}</div>{r&&<pre>{JSON.stringify(r,null,2)}</pre>}</div></>}
+function Avail(){const[a,setA]=useState([]);const load=()=>api.get("/energy-slots").then(x=>setA(x.data));useEffect(()=>{load();},[]);async function up(s){const v=prompt("Available capacity",s.availableCapacityKwh);if(v!=null){await api.put(`/energy-slots/${s.id}/availability?availableCapacityKwh=${v}`);load()}}return <><Title t="Energy Availability" d="Update battery and energy slot availability"/><Table><table><thead><tr><th>Slot</th><th>Total</th><th>Available</th><th>Status</th><th/></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td><td><button className="btn-edit" onClick={()=>up(s)}>Update</button></td></tr>)}</tbody></table></Table></>}
+function QR(){const[t,setT]=useState(""),[r,setR]=useState(null),[e,setE]=useState("");async function verify(){try{const x=await api.post("/qr/verify",{qrToken:t});setR(x.data);setE("")}catch(x){setE(x.response?.data?.error||"Invalid QR")}}async function complete(){try{const x=await api.post("/qr/complete",{qrToken:t});setR(x.data)}catch(x){setE(x.response?.data?.error||"Cannot complete")}}return <><Title t="QR Transaction Verification" d="Verify and finalize Prosumer energy transfers"/><div className="card qr"><QrCode size={48}/><textarea placeholder="Paste scanned QR token" value={t} onChange={e=>setT(e.target.value)}/>{e&&<div className="err">{e}</div>}<div className="qr-actions"><button onClick={verify}>Verify Transaction</button>{r?.valid&&<button onClick={complete}>Complete Transfer</button>}</div>{r&&<pre>{JSON.stringify(r,null,2)}</pre>}</div></>}
 
 export default function App(){return <Routes><Route path="/login" element={<Login/>}/><Route path="/backoffice/*" element={<Guard role="Backoffice"/>}/><Route path="/operator/*" element={<Guard role="GridOperator"/>}/><Route path="*" element={<Navigate to="/login"/>}/></Routes>}

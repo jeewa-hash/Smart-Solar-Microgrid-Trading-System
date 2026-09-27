@@ -8,6 +8,7 @@ public class Prosumer {
     public string Phone { get; set; } = "";
     public string Address { get; set; } = "";
     public string UserId { get; set; } = "";
+    public bool IsDrpVerified { get; set; } = false;
     public UserStatus AccountStatus { get; set; } = UserStatus.Pending;
     public bool IsDrpVerified { get; set; } = false;
     public string DrpVerificationRef { get; set; } = "";
