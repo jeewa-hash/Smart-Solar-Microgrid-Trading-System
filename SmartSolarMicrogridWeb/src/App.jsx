@@ -1,0 +1,179 @@
+import React,{useEffect,useState} from "react";
+import {Routes,Route,Navigate,useNavigate,useLocation} from "react-router-dom";
+import {api,user} from "./api";
+import {Sun,LayoutDashboard,Users,MapPin,Battery,CalendarDays,QrCode,LogOut,Menu,X,ShieldCheck,Activity,UserPlus} from "lucide-react";
+
+const save=(d)=>{localStorage.setItem("token",d.token);localStorage.setItem("user",JSON.stringify(d));};
+const logout=()=>{localStorage.clear();location.href="/login"};
+const auth=(roles)=>{const u=user();if(!localStorage.getItem("token"))return <Navigate to="/login"/>;if(roles&&!roles.includes(u?.role))return <Navigate to={u?.role==="Backoffice"?"/backoffice":"/operator"}/>;return null};
+
+function Login(){const [f,setF]=useState({username:"admin",password:"Admin@123"}),[e,setE]=useState("");const n=useNavigate();async function go(x){x.preventDefault();try{const r=await api.post("/auth/login",f);save(r.data);n(r.data.role==="Backoffice"?"/backoffice":"/operator")}catch(e){setE(e.response?.data?.error||"Login failed")}}return <div className="login"><div className="loginbox"><div className="logo"><Sun/></div><h1>Smart Solar</h1><p>Microgrid Trading System</p>{e&&<div className="err">{e}</div>}<form onSubmit={go}><label>Username<input value={f.username} onChange={e=>setF({...f,username:e.target.value})}/></label><label>Password<input type="password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/></label><button>Sign in</button></form><small>Backoffice: admin / Admin@123<br/>Operator: operator1 / Operator@123</small></div></div>}
+
+const links={Backoffice:[["/backoffice","Dashboard",LayoutDashboard],["/backoffice/users","User Management",UserPlus],["/backoffice/prosumers","Prosumer Management",Users],["/backoffice/stations","Microgrid Nodes",MapPin],["/backoffice/slots","Energy Slots",Battery],["/backoffice/reservations","Reservations",CalendarDays]],GridOperator:[["/operator","Dashboard",LayoutDashboard],["/operator/bookings","Bookings",CalendarDays],["/operator/availability","Availability",Battery],["/operator/qr","QR Verification",QrCode]]};
+
+function Shell({role}){const n=useNavigate(),l=useLocation(),[open,setOpen]=useState(false);return <div><aside className={open?"side open":"side"}><div className="brand"><Sun/> Smart Solar</div>{links[role].map(([p,t,I])=><button className={l.pathname===p?"nav active":"nav"} onClick={()=>{n(p);setOpen(false)}} key={p}><I/> {t}</button>)}<button className="nav bottom" onClick={logout}><LogOut/> Logout</button></aside>{open&&<div className="overlay" onClick={()=>setOpen(false)}/>}<main className="main"><header><button className="hamb" onClick={()=>setOpen(true)}><Menu/></button><span>Smart Solar Microgrid Trading System</span><b>{user()?.username}</b></header><section><Routes>{role==="Backoffice"?<><Route index element={<BOHome/>}/><Route path="users" element={<UserMgmt/>}/><Route path="prosumers" element={<Pros/>}/><Route path="stations" element={<Stations/>}/><Route path="slots" element={<Slots/>}/><Route path="reservations" element={<Res/>}/></>:<><Route index element={<OpHome/>}/><Route path="bookings" element={<Bookings/>}/><Route path="availability" element={<Avail/>}/><Route path="qr" element={<QR/>}/></>}</Routes></section></main></div>}
+
+function Guard({role}){return auth([role])||<Shell role={role}/>}
+
+const Stat=({t,v,I})=><div className="card stat"><div><small>{t}</small><strong>{v??"—"}</strong></div><I/></div>;
+const Title=({t,d})=><div className="title"><h1>{t}</h1><p>{d}</p></div>;
+const Table=({children})=><div className="card table">{children}</div>;
+
+function BOHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/backoffice").then(x=>setD(x.data))},[]);return <><Title t="Backoffice Dashboard" d="Administration and microgrid overview"/><div className="stats"><Stat t="Active Prosumers" v={d.totalProsumers} I={Users}/><Stat t="Pending Accounts" v={d.pendingProsumerAccounts} I={ShieldCheck}/><Stat t="Microgrid Nodes" v={d.totalStations} I={MapPin}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/><Stat t="Pending Reservations" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved Reservations" v={d.approvedReservations} I={Activity}/><Stat t="Completed Transfers" v={d.completedTransfers} I={QrCode}/></div></>}
+
+function UserMgmt() {
+    const empty = { username: "", password: "", confirmPassword: "", role: 1, status: 0 };
+    const [f, setF] = useState(empty), [a, setA] = useState([]), [e, setE] = useState(""), [filter, setFilter] = useState("All Roles"), [edit, setEdit] = useState(null);
+    const load = () => api.get("/users/internal").then(x => setA(x.data));
+    useEffect(() => { load(); }, []);
+    async function saveF(x) {
+        x.preventDefault();
+        if (f.password !== f.confirmPassword) return setE("Passwords do not match");
+        try {
+            if (edit) {
+                await api.put(`/users/${edit}`, { role: +f.role, status: +f.status, ...(f.password ? { password: f.password } : {}) });
+            } else {
+                await api.post("/users", { username: f.username, password: f.password, role: +f.role, status: +f.status });
+            }
+            setF(empty); setEdit(null); setE(""); load();
+        } catch (err) {
+            setE(err.response?.data?.error || "Failed to save user");
+        }
+    }
+    async function del(id) {
+        if (window.confirm("Are you sure you want to delete this user?")) {
+            try { await api.delete(`/users/${id}`); load(); }
+            catch (err) { setE(err.response?.data?.error || "Failed to delete"); }
+        }
+    }
+    function startEdit(u) {
+        setEdit(u.id);
+        setF({ username: u.username, password: "", confirmPassword: "", role: u.role, status: u.status });
+        setE("");
+    }
+    const fa = filter === "All Roles" ? a : a.filter(u => u.role === (filter === "Backoffice" ? 0 : 1));
+    return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value={0}>Backoffice</option><option value={1}>Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value={0}>Active</option><option value={1}>Inactive</option></select></label><div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === 0 ? "Backoffice" : "Grid Operator"}</td><td>{u.status === 0 ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button style={{marginRight:"5px",padding:"4px 8px"}} onClick={() => startEdit(u)}>Edit</button><button style={{background:"#ef4444",padding:"4px 8px"}} onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
+}
+
+function Pros(){
+    const [a, setA] = useState([]), [st, setSt] = useState("Pending");
+    const load = () => api.get("/prosumers/all").then(x => setA(x.data)).catch(() => {});
+    useEffect(() => { load(); }, []);
+    const act = async (n, action) => { await api.put(`/prosumers/${n}/${action}`); load(); };
+    const filtered = a.filter(p => st === "Pending" ? p.accountStatus === 0 : st === "Active" ? p.accountStatus === 1 : p.accountStatus === 2);
+    return <><Title t="Prosumer Management" d="Manage prosumer profiles and lifecycle" /><Table>
+        <div className="tabs">
+            <button className={st === "Pending" ? "selected" : ""} onClick={() => setSt("Pending")}>Pending</button>
+            <button className={st === "Active" ? "selected" : ""} onClick={() => setSt("Active")}>Active</button>
+            <button className={st === "Inactive" ? "selected" : ""} onClick={() => setSt("Inactive")}>Deactivated</button>
+        </div>
+        <table>
+            <thead><tr><th>NIC</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>{filtered.map(p => <tr key={p.id}>
+                <td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td>
+                <td><span className="badge">{p.accountStatus === 0 ? "Pending" : p.accountStatus === 1 ? "Active" : "Inactive"}</span></td>
+                <td>
+                    {st === "Pending" && <button onClick={() => act(p.nic, "activate")}>Activate</button>}
+                    {st === "Active" && <button style={{ background: "#ef4444" }} onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
+                    {st === "Inactive" && <button onClick={() => act(p.nic, "reactivate")}>Reactivate</button>}
+                </td>
+            </tr>)}</tbody>
+        </table>
+        {!filtered.length && <p className="empty">No {st.toLowerCase()} prosumers found.</p>}
+    </Table></>;
+}
+
+function Stations() {
+    const [a, setA] = useState([]), [edit, setEdit] = useState(null), [err, setErr] = useState("");
+    
+    const getNextCode = (nodes) => {
+        if (!nodes || nodes.length === 0) return "N-001";
+        const max = Math.max(...nodes.map(n => {
+            const match = n.nodeCode.match(/N-(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+        }));
+        return `N-${(max + 1).toString().padStart(3, '0')}`;
+    };
+
+    const empty = (nodes = []) => ({ nodeCode: getNextCode(nodes), nodeName: "", latitude: "", longitude: "", capacityKw: "", batterySlotAvailability: "", scheduleStart: "08:00", scheduleEnd: "18:00" });
+    const [f, setF] = useState(empty());
+
+    const load = () => api.get("/microgrid-nodes").then(x => {
+        setA(x.data);
+        if (!edit) setF(empty(x.data));
+    });
+    useEffect(() => { load(); }, []);
+
+    async function saveF(e) {
+        e.preventDefault();
+        if (f.scheduleStart >= f.scheduleEnd) return setErr("Start time must be before end time");
+        const b = { ...f, latitude: +f.latitude, longitude: +f.longitude, capacityKw: +f.capacityKw, batterySlotAvailability: +f.batterySlotAvailability };
+        try {
+            if (edit) await api.put(`/microgrid-nodes/${edit}`, b);
+            else await api.post("/microgrid-nodes", b);
+            setEdit(null);
+            setErr("");
+            load();
+        } catch (x) {
+            setErr(x.response?.data?.error || "Failed to save station");
+        }
+    }
+
+    async function deact(id) {
+        if (window.confirm("Deactivate this node?")) {
+            try { await api.put(`/microgrid-nodes/${id}/deactivate`); setErr(""); load(); }
+            catch (x) { setErr(x.response?.data?.error || "Cannot deactivate node"); }
+        }
+    }
+
+    const formFields = ["nodeCode", "nodeName", "latitude", "longitude", "capacityKw", "batterySlotAvailability", "scheduleStart", "scheduleEnd"];
+    const getMin = (k) => k === "latitude" ? "-90" : k === "longitude" ? "-180" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "0" : k.startsWith("schedule") ? "08:00" : undefined;
+    const getMax = (k) => k === "latitude" ? "90" : k === "longitude" ? "180" : k.startsWith("schedule") ? "20:00" : undefined;
+    const getStep = (k) => (k === "latitude" || k === "longitude") ? "0.0001" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "1" : undefined;
+
+    return <><Title t="Microgrid Nodes" d="Register and manage solar grid hubs" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Update" : "Register"} Station</h2>{err && <div className="err">{err}</div>}{formFields.map(k => <label key={k}>{k}<input required value={f[k] || ''} type={["latitude", "longitude", "capacityKw", "batterySlotAvailability"].includes(k) ? "number" : k.startsWith("schedule") ? "time" : "text"} min={getMin(k)} max={getMax(k)} step={getStep(k)} disabled={k === "nodeCode" && !!edit} onChange={e => setF({ ...f, [k]: e.target.value })} /></label>)}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}> {edit ? "Update" : "Create Node"} </button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Registered Nodes</h2><table><thead><tr><th>Code</th><th>Name</th><th>GPS</th><th>Capacity</th><th>Battery</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(x => <tr key={x.id}><td>{x.nodeCode}</td><td>{x.nodeName}</td><td>{x.latitude},{x.longitude}</td><td>{x.capacityKw} kW</td><td>{x.batterySlotAvailability}</td><td>{x.status === 0 ? "Active" : "Inactive"}</td><td><button style={{ marginRight: "5px", padding: "4px 8px" }} onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>{x.status === 0 && <button style={{ background: "#f59e0b", padding: "4px 8px" }} onClick={() => deact(x.id)}>Deactivate</button>}</td></tr>)}</tbody></table></Table></div></>;
+}
+
+function Slots(){
+    const empty = {nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:"",availableCapacityKwh:"",status:"Available"};
+    const [f,setF]=useState(empty),[nodes,setN]=useState([]),[a,setA]=useState([]),[edit,setEdit]=useState(null),[err,setErr]=useState("");
+    const load=()=>Promise.all([api.get("/microgrid-nodes?activeOnly=true"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});
+    useEffect(()=>{load();},[]);
+    async function go(e){
+        e.preventDefault();
+        try {
+            const b = {...f, energyAmountKwh: +f.energyAmountKwh, slotDate: new Date(f.slotDate).toISOString()};
+            if (edit) {
+                b.availableCapacityKwh = +f.availableCapacityKwh;
+                b.status = f.status.toString();
+                await api.put(`/energy-slots/${edit}`, b);
+            } else {
+                await api.post("/energy-slots", b);
+            }
+            setEdit(null); setF(empty); setErr(""); load();
+        } catch(x) { setErr(x.response?.data?.error || "Failed to save slot. Check inputs."); }
+    }
+    function startEdit(s) {
+        const statuses = ["Available", "Reserved", "Unavailable", "Completed"];
+        setEdit(s.id);
+        setF({
+            nodeId: s.nodeId,
+            slotDate: new Date(s.slotDate).toISOString().split('T')[0],
+            startTime: s.startTime,
+            endTime: s.endTime,
+            energyAmountKwh: s.energyAmountKwh,
+            availableCapacityKwh: s.availableCapacityKwh,
+            status: typeof s.status === 'number' ? statuses[s.status] : s.status
+        });
+        setErr("");
+    }
+    return <><Title t="Energy Slots" d="Create and monitor trading slots"/><div className="grid2"><form className="card" onSubmit={go}><h2>{edit ? "Edit Energy Slot" : "Create Energy Slot"}</h2>{err && <div className="err">{err}</div>}<label>Node<select required disabled={!!edit} value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}><option value="">Select</option>{nodes.map(n=><option value={n.id} key={n.id}>{n.nodeCode} — {n.nodeName}</option>)}</select></label><label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label><label>Start<input type="time" required value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label><label>End<input type="time" required value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label><label>Total Energy (kWh)<input required type="number" min="0.1" step="0.1" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label>{edit && <><label>Available (kWh)<input required type="number" min="0" step="0.1" max={f.energyAmountKwh} value={f.availableCapacityKwh} onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}/></label><label>Status<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="Available">Available</option><option value="Unavailable">Unavailable</option></select></label></>}<div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update Slot" : "Create Slot"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><h2>Energy Slots</h2><table><thead><tr><th>Date</th><th>Node</th><th>Time</th><th>Total</th><th>Available</th><th>Status</th><th>Actions</th></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{new Date(s.slotDate).toLocaleDateString()}</td><td>{nodes.find(n=>n.id===s.nodeId)?.nodeCode||s.nodeId}</td><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td><span className="badge">{typeof s.status === 'number' ? ["Available", "Reserved", "Unavailable", "Completed"][s.status] : s.status}</span></td><td><button style={{padding:"4px 8px"}} onClick={()=>startEdit(s)}>Edit</button></td></tr>)}</tbody></table></Table></div></>}
+
+function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const load=()=>api.get(`/reservations/status/${st}`).then(x=>setA(x.data));useEffect(()=>{load();},[st]);return <><Title t="Reservations" d="Monitor and approve reservation workflow"/><Table><div className="tabs">{["Pending","Approved","Completed","Cancelled"].map(x=><button className={st===x?"selected":""} onClick={()=>setSt(x)} key={x}>{x}</button>)}</div><table><thead><tr><th>Code</th><th>Date</th><th>Time</th><th>Energy</th><th>Status</th><th/></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh} kWh</td><td><span className="badge">{r.status}</span></td><td>{st==="Pending"&&<button onClick={async()=>{await api.put(`/reservations/${r.id}/approve`);load()}}>Approve</button>}</td></tr>)}</tbody></table></Table></>}
+
+function OpHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/operator").then(x=>setD(x.data))},[]);return <><Title t="Grid Operator Dashboard" d="Operational station monitoring"/><div className="stats"><Stat t="Pending" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved" v={d.approvedReservations} I={ShieldCheck}/><Stat t="Today's Bookings" v={d.todayBookings} I={Activity}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/></div></>}
+function Bookings(){const[st,setSt]=useState("Approved"),[a,setA]=useState([]);useEffect(()=>{api.get(`/reservations/status/${st}`).then(x=>setA(x.data))},[st]);return <><Title t="Bookings" d="View pending and approved reservations"/><Table><div className="tabs"><button className={st==="Pending"?"selected":""} onClick={()=>setSt("Pending")}>Pending</button><button className={st==="Approved"?"selected":""} onClick={()=>setSt("Approved")}>Approved</button></div><table><thead><tr><th>Code</th><th>Node</th><th>Date</th><th>Time</th><th>Energy</th></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{r.nodeId}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh}</td></tr>)}</tbody></table></Table></>}
+function Avail(){const[a,setA]=useState([]);const load=()=>api.get("/energy-slots").then(x=>setA(x.data));useEffect(()=>{load();},[]);async function up(s){const v=prompt("Available capacity",s.availableCapacityKwh);if(v!=null){await api.put(`/energy-slots/${s.id}/availability?availableCapacityKwh=${v}`);load()}}return <><Title t="Energy Availability" d="Update battery and energy slot availability"/><Table><table><thead><tr><th>Slot</th><th>Total</th><th>Available</th><th>Status</th><th/></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td><td><button onClick={()=>up(s)}>Update</button></td></tr>)}</tbody></table></Table></>}
+function QR(){const[t,setT]=useState(""),[r,setR]=useState(null),[e,setE]=useState("");async function verify(){try{const x=await api.post("/qr/verify",{qrToken:t});setR(x.data);setE("")}catch(x){setE(x.response?.data?.error||"Invalid QR")}}async function complete(){try{const x=await api.post("/qr/complete",{qrToken:t});setR(x.data)}catch(x){setE(x.response?.data?.error||"Cannot complete")}}return <><Title t="QR Transaction Verification" d="Verify and finalize Prosumer energy transfers"/><div className="card qr"><QrCode size={48}/><textarea placeholder="Paste scanned QR token" value={t} onChange={e=>setT(e.target.value)}/>{e&&<div className="err">{e}</div>}<div><button onClick={verify}>Verify Transaction</button>{r?.valid&&<button onClick={complete}>Complete Transfer</button>}</div>{r&&<pre>{JSON.stringify(r,null,2)}</pre>}</div></>}
+
+export default function App(){return <Routes><Route path="/login" element={<Login/>}/><Route path="/backoffice/*" element={<Guard role="Backoffice"/>}/><Route path="/operator/*" element={<Guard role="GridOperator"/>}/><Route path="*" element={<Navigate to="/login"/>}/></Routes>}
