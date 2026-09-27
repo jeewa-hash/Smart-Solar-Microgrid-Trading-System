@@ -170,7 +170,7 @@ public class OperatorActivity extends BaseActivity {
     }
 
     private void reservationDetail(JsonObject x) {
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle(ApiUtils.str(x, "reservationCode"))
                 .setMessage("👤 Prosumer: " + ApiUtils.str(x, "prosumerId")
                         + "\n🗺 Node: " + ApiUtils.str(x, "nodeId")
@@ -178,9 +178,34 @@ public class OperatorActivity extends BaseActivity {
                         + "\n⏱ " + ApiUtils.str(x, "startTime")
                         + " – " + ApiUtils.str(x, "endTime")
                         + "\n⚡ Energy: " + fmt(ApiUtils.num(x, "energyAmountKwh")) + " kWh"
-                        + "\n🔖 Status: " + ApiUtils.str(x, "status"))
-                .setPositiveButton("Close", null)
-                .show();
+                        + "\n🔖 Status: " + ApiUtils.str(x, "status"));
+        
+        if ("Pending".equalsIgnoreCase(ApiUtils.str(x, "status"))) {
+            b.setPositiveButton("Approve", (d, w) -> approveReservation(ApiUtils.str(x, "id")));
+            b.setNegativeButton("Close", null);
+        } else {
+            b.setPositiveButton("Close", null);
+        }
+        b.show();
+    }
+
+    private void approveReservation(String id) {
+        showLoading();
+        ApiClient.get().approveReservation(id).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (r.isSuccessful()) {
+                    toast("✅ Reservation Approved!");
+                    showReservations("Pending");
+                    loadDashboard();
+                } else {
+                    toast(errorMsg(r));
+                }
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
     }
 
     // ── Energy Slots ──────────────────────────────────────
