@@ -293,10 +293,14 @@ function Stations() {
         }
     }
 
-    const formFields = ["nodeCode", "nodeName", "latitude", "longitude", "capacityKw", "batterySlotAvailability"];
-    const getMin = (k) => k === "latitude" ? "-90" : k === "longitude" ? "-180" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "0" : undefined;
-    const getMax = (k) => k === "latitude" ? "90" : k === "longitude" ? "180" : undefined;
-    const getStep = (k) => (k === "latitude" || k === "longitude") ? "0.0001" : k === "capacityKw" ? "0.1" : k === "batterySlotAvailability" ? "1" : undefined;
+    const formFieldsConfig = [
+        { key: "nodeCode", label: "Node Code", type: "text", disabled: !!edit, placeholder: "e.g. N-003" },
+        { key: "nodeName", label: "Branch / Station Name", type: "text", placeholder: "e.g. Colombo Central Solar Hub" },
+        { key: "latitude", label: "Latitude", type: "number", min: "-90", max: "90", step: "0.0001", placeholder: "e.g. 6.9271" },
+        { key: "longitude", label: "Longitude", type: "number", min: "-180", max: "180", step: "0.0001", placeholder: "e.g. 79.8612" },
+        { key: "capacityKw", label: "Capacity (kW)", type: "number", min: "0.1", step: "0.1", placeholder: "e.g. 150" },
+        { key: "batterySlotAvailability", label: "Battery Slot Availability", type: "number", min: "0", step: "1", placeholder: "e.g. 20" }
+    ];
 
     const filteredNodes = a.filter(x => {
         if (!search.trim()) return true;
@@ -319,18 +323,19 @@ function Stations() {
             <form className="card" onSubmit={saveF}>
                 <h2>{edit ? "Update" : "Register"} Station</h2>
                 {err && <div className="err">{err}</div>}
-                {formFields.map(k => (
-                    <label key={k}>
-                        {k}
+                {formFieldsConfig.map(({ key, label, type, min, max, step, placeholder, disabled }) => (
+                    <label key={key}>
+                        {label}
                         <input
                             required
-                            value={f[k] || ''}
-                            type={["latitude", "longitude", "capacityKw", "batterySlotAvailability"].includes(k) ? "number" : "text"}
-                            min={getMin(k)}
-                            max={getMax(k)}
-                            step={getStep(k)}
-                            disabled={k === "nodeCode" && !!edit}
-                            onChange={e => setF({ ...f, [k]: e.target.value })}
+                            value={f[key] || ''}
+                            type={type}
+                            min={min}
+                            max={max}
+                            step={step}
+                            placeholder={placeholder}
+                            disabled={disabled}
+                            onChange={e => setF({ ...f, [key]: e.target.value })}
                         />
                     </label>
                 ))}
@@ -344,7 +349,7 @@ function Stations() {
                 <div className="table-header">
                     <h2 style={{ margin: 0 }}>Registered Nodes</h2>
                     <div className="table-search-bar">
-                        <Search size={16}/>
+                        <Search size={15}/>
                         <input
                             type="text"
                             placeholder="Search branch name, code, note..."
@@ -383,8 +388,9 @@ function Stations() {
                             <th>GPS</th>
                             <th>Capacity</th>
                             <th>Battery</th>
-                            <th>Status & Note</th>
-                            <th>Actions</th>
+                            <th>Status</th>
+                            <th>Admin Note</th>
+                            <th style={{ textAlign: "right", paddingRight: "18px" }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -392,34 +398,38 @@ function Stations() {
                             <tr key={x.id}>
                                 <td><strong>{x.nodeCode}</strong></td>
                                 <td>{x.nodeName}</td>
-                                <td>{x.latitude},{x.longitude}</td>
+                                <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>{x.latitude}, {x.longitude}</td>
                                 <td>{x.capacityKw} kW</td>
                                 <td>{x.batterySlotAvailability}</td>
                                 <td>
-                                    <div>
-                                        <span className={`badge ${x.status === 0 ? "badge-active" : "badge-inactive"}`}>
-                                            {x.status === 0 ? "Active" : "Inactive"}
-                                        </span>
-                                        {x.status !== 0 && (
-                                            <div className="node-note-badge" title={`Admin Note: ${x.adminNote || x.deactivationReason || "Unavailable"}`}>
-                                                <AlertTriangle size={12} style={{ flexShrink: 0 }}/>
-                                                <span>Unavailable: {x.adminNote || x.deactivationReason || "Unavailable"}</span>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <span className={`badge ${x.status === 0 ? "badge-active" : "badge-inactive"}`}>
+                                        {x.status === 0 ? "Active" : "Inactive"}
+                                    </span>
                                 </td>
                                 <td>
-                                    <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>
-                                    {x.status === 0 ? (
-                                        <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
+                                    {x.status !== 0 ? (
+                                        <span className="reason-pill" title={`Admin Reason: ${x.adminNote || x.deactivationReason || "Routine Maintenance"}`}>
+                                            <AlertTriangle size={12} style={{ flexShrink: 0 }}/>
+                                            <span>{x.adminNote || x.deactivationReason || "Routine Maintenance"}</span>
+                                        </span>
                                     ) : (
-                                        <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
+                                        <span className="text-muted-dash">—</span>
                                     )}
+                                </td>
+                                <td>
+                                    <div className="table-actions-cell" style={{ justifyContent: "flex-end" }}>
+                                        <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>
+                                        {x.status === 0 ? (
+                                            <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
+                                        ) : (
+                                            <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
+                                <td colSpan="8" style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
                                     No microgrid nodes matched your search.
                                 </td>
                             </tr>
@@ -658,7 +668,7 @@ function Slots(){
                             <th>Total</th>
                             <th>Available</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th style={{ textAlign: "right", paddingRight: "18px" }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -670,14 +680,18 @@ function Slots(){
                                 <tr key={s.id}>
                                     <td>{new Date(s.slotDate).toLocaleDateString()}</td>
                                     <td>
-                                        <strong>{node?.nodeCode || s.nodeId}</strong>
-                                        {node?.nodeName && <span style={{ marginLeft: "6px", color: "var(--text-muted)", fontSize: "13px" }}>({node.nodeName})</span>}
-                                        {isNodeInactive && (
-                                            <div className="node-note-badge" title={`Deactivated: ${node.adminNote || "Unavailable"}`}>
-                                                <AlertTriangle size={11} style={{ flexShrink: 0 }}/>
-                                                <span>Node Inactive: {node.adminNote || "Maintenance"}</span>
+                                        <div className="cell-branch-stack">
+                                            <div className="branch-title-row">
+                                                <strong>{node?.nodeCode || s.nodeId}</strong>
+                                                {node?.nodeName && <span className="branch-subname">({node.nodeName})</span>}
                                             </div>
-                                        )}
+                                            {isNodeInactive && (
+                                                <span className="branch-inactive-tag" title={`Reason: ${node.adminNote || "Routine Maintenance"}`}>
+                                                    <AlertTriangle size={11} style={{ flexShrink: 0 }}/>
+                                                    <span>{node.adminNote || "Node Deactivated"}</span>
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>{s.startTime}–{s.endTime}</td>
                                     <td>{s.energyAmountKwh} kWh</td>
@@ -687,7 +701,9 @@ function Slots(){
                                             {statusStr}
                                         </span>
                                     </td>
-                                    <td><button className="btn-edit" onClick={()=>startEdit(s)}>Edit</button></td>
+                                    <td style={{ textAlign: "right", paddingRight: "18px" }}>
+                                        <button className="btn-edit" onClick={()=>startEdit(s)}>Edit</button>
+                                    </td>
                                 </tr>
                             );
                         }) : (
