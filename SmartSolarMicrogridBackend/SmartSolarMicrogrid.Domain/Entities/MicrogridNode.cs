@@ -11,6 +11,8 @@ public class MicrogridNode {
     public string ScheduleStart { get; set; } = "08:00";
     public string ScheduleEnd { get; set; } = "18:00";
     public NodeStatus Status { get; set; } = NodeStatus.Active;
+    public string? DeactivationReason { get; set; }
+    public string? AdminNote { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

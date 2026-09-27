@@ -21,12 +21,20 @@ public class EnergySlotService : IEnergySlotService {
     }
     public async Task<EnergySlot> UpdateAsync(string id,UpdateEnergySlotDto d){
         var s=await _slots.GetByIdAsync(id)??throw new KeyNotFoundException("Slot not found.");
+        var node=await _nodes.GetByIdAsync(s.NodeId);
+        if(Enum.TryParse<SlotStatus>(d.Status,true,out var st)){
+            if(node != null && node.Status != NodeStatus.Active && st == SlotStatus.Available)
+                throw new InvalidOperationException($"Cannot set slot to Available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
+            s.Status=st;
+        } else throw new ArgumentException("Invalid slot status.");
         s.SlotDate=d.SlotDate.Date;s.StartTime=d.StartTime;s.EndTime=d.EndTime;s.EnergyAmountKwh=d.EnergyAmountKwh;s.AvailableCapacityKwh=d.AvailableCapacityKwh;
-        if(Enum.TryParse<SlotStatus>(d.Status,true,out var st))s.Status=st;else throw new ArgumentException("Invalid slot status.");
         s.UpdatedAt=DateTime.UtcNow;await _slots.ReplaceAsync(id,s);return s;
     }
     public async Task<EnergySlot> UpdateAvailabilityAsync(string id,double available){
         var s=await _slots.GetByIdAsync(id)??throw new KeyNotFoundException("Slot not found.");
+        var node=await _nodes.GetByIdAsync(s.NodeId);
+        if(node != null && node.Status != NodeStatus.Active && available > 0)
+            throw new InvalidOperationException($"Cannot make slot available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
         if(available<0 || available>s.EnergyAmountKwh)throw new ArgumentException("Invalid availability.");
         s.AvailableCapacityKwh=available;s.Status=available>0?SlotStatus.Available:SlotStatus.Unavailable;s.UpdatedAt=DateTime.UtcNow;await _slots.ReplaceAsync(id,s);return s;
     }
