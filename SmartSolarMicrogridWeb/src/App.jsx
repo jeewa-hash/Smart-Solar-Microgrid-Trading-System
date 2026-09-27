@@ -182,7 +182,7 @@ function Pros(){
     const load = () => api.get("/prosumers/all").then(x => setA(x.data)).catch(() => {});
     useEffect(() => { load(); }, []);
     const act = async (n, action) => { await api.put(`/prosumers/${n}/${action}`); load(); };
-    const filtered = a.filter(p => st === "Pending" ? p.accountStatus === 0 : st === "Active" ? p.accountStatus === 1 : p.accountStatus === 2);
+    const filtered = a.filter(p => st === "Pending" ? (p.accountStatus === 0 || p.accountStatus === "Pending") : st === "Active" ? (p.accountStatus === 1 || p.accountStatus === "Active") : (p.accountStatus === 2 || p.accountStatus === "Deactivated"));
     return <><Title t="Prosumer Management" d="Manage prosumer profiles and lifecycle" /><Table>
         <div className="tabs">
             <button className={st === "Pending" ? "selected" : ""} onClick={() => setSt("Pending")}>Pending</button>
@@ -193,7 +193,7 @@ function Pros(){
             <thead><tr><th>NIC</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>{filtered.map(p => <tr key={p.id}>
                 <td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td>
-                <td><span className="badge">{p.accountStatus === 0 ? "Pending" : p.accountStatus === 1 ? "Active" : "Inactive"}</span></td>
+                <td><span className="badge">{p.accountStatus === 0 || p.accountStatus === "Pending" ? "Pending" : p.accountStatus === 1 || p.accountStatus === "Active" ? "Active" : "Inactive"}</span></td>
                 <td>
                     {st === "Pending" && <button className="btn-success" onClick={() => act(p.nic, "activate")}>Activate</button>}
                     {st === "Active" && <button className="btn-delete" onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
@@ -308,14 +308,14 @@ function Stations() {
         return (
             x.nodeCode?.toLowerCase().includes(q) ||
             x.nodeName?.toLowerCase().includes(q) ||
-            (x.status === 0 ? "active" : "inactive").includes(q) ||
+            (x.status === 0 || x.status === "Active" ? "active" : "inactive").includes(q) ||
             x.adminNote?.toLowerCase().includes(q) ||
             x.deactivationReason?.toLowerCase().includes(q) ||
             `${x.latitude},${x.longitude}`.includes(q)
         );
     });
 
-    const inactiveMatches = search.trim() ? filteredNodes.filter(x => x.status !== 0) : [];
+    const inactiveMatches = search.trim() ? filteredNodes.filter(x => x.status !== 0 && x.status !== "Active") : [];
 
     return <>
         <Title t="Microgrid Nodes" d="Register and manage solar grid hubs" />
@@ -402,12 +402,12 @@ function Stations() {
                                 <td>{x.capacityKw} kW</td>
                                 <td>{x.batterySlotAvailability}</td>
                                 <td>
-                                    <span className={`badge ${x.status === 0 ? "badge-active" : "badge-inactive"}`}>
-                                        {x.status === 0 ? "Active" : "Inactive"}
+                                    <span className={`badge ${x.status === 0 || x.status === "Active" ? "badge-active" : "badge-inactive"}`}>
+                                        {x.status === 0 || x.status === "Active" ? "Active" : "Inactive"}
                                     </span>
                                 </td>
                                 <td>
-                                    {x.status !== 0 ? (
+                                    {x.status !== 0 && x.status !== "Active" ? (
                                         <span className="reason-pill" title={`Admin Reason: ${x.adminNote || x.deactivationReason || "Routine Maintenance"}`}>
                                             <AlertTriangle size={12} style={{ flexShrink: 0 }}/>
                                             <span>{x.adminNote || x.deactivationReason || "Routine Maintenance"}</span>
@@ -419,7 +419,7 @@ function Stations() {
                                 <td>
                                     <div className="table-actions-cell" style={{ justifyContent: "flex-end" }}>
                                         <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>
-                                        {x.status === 0 ? (
+                                        {x.status === 0 || x.status === "Active" ? (
                                             <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
                                         ) : (
                                             <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
@@ -518,7 +518,7 @@ function Slots(){
     useEffect(()=>{load();},[]);
 
     const selectedNode = nodes.find(n => n.id === f.nodeId);
-    const isSelectedNodeInactive = selectedNode && selectedNode.status !== 0;
+    const isSelectedNodeInactive = selectedNode && selectedNode.status !== 0 && selectedNode.status !== "Active";
 
     async function go(e){
         e.preventDefault();
@@ -551,7 +551,7 @@ function Slots(){
             endTime: s.endTime,
             energyAmountKwh: s.energyAmountKwh,
             availableCapacityKwh: s.availableCapacityKwh,
-            status: (nodeForSlot && nodeForSlot.status !== 0 && rawStatus === "Available") ? "Unavailable" : rawStatus
+            status: (nodeForSlot && nodeForSlot.status !== 0 && nodeForSlot.status !== "Active" && rawStatus === "Available") ? "Unavailable" : rawStatus
         });
         setErr("");
     }
@@ -593,7 +593,7 @@ function Slots(){
                     <select required disabled={!!edit} value={f.nodeId} onChange={e=>setF({...f,nodeId:e.target.value})}>
                         <option value="">Select Microgrid Node</option>
                         {nodes.map(n=>{
-                            const isInactive = n.status !== 0;
+                            const isInactive = n.status !== 0 && n.status !== "Active";
                             return (
                                 <option value={n.id} key={n.id} disabled={isInactive}>
                                     {n.nodeCode} — {n.nodeName} {isInactive ? `⚠️ [Deactivated: ${n.adminNote || "Unavailable"}]` : ""}
@@ -674,7 +674,7 @@ function Slots(){
                     <tbody>
                         {filteredSlots.length > 0 ? filteredSlots.map(s => {
                             const node = nodes.find(n => n.id === s.nodeId);
-                            const isNodeInactive = node && node.status !== 0;
+                            const isNodeInactive = node && node.status !== 0 && node.status !== "Active";
                             const statusStr = typeof s.status === 'number' ? ["Available", "Reserved", "Unavailable", "Completed"][s.status] : s.status;
                             return (
                                 <tr key={s.id}>
