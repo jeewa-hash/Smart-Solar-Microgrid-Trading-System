@@ -1,10 +1,13 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MongoDB.Bson.Serialization.Conventions;
 using SmartSolarMicrogrid.Domain.Entities;
 namespace SmartSolarMicrogrid.Infrastructure.MongoDB;
 public class MongoDbContext {
     private readonly IMongoDatabase _db;
     public MongoDbContext(IOptions<MongoDbSettings> options) {
+        var pack = new ConventionPack { new IgnoreExtraElementsConvention(true) };
+        ConventionRegistry.Register("IgnoreExtraElements", pack, t => true);
         var client = new MongoClient(options.Value.ConnectionString);
         _db = client.GetDatabase(options.Value.DatabaseName);
     }
