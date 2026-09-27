@@ -24,6 +24,7 @@ public interface ApiService {
     @GET("reservations/{id}") Call<JsonObject> reservation(@Path("id") String id);
     @PUT("reservations/{id}") Call<JsonObject> updateReservation(@Path("id") String id, @Query("nic") String nic, @Body JsonObject body);
     @DELETE("reservations/{id}") Call<JsonObject> cancelReservation(@Path("id") String id, @Query("nic") String nic);
+    @PUT("reservations/{id}/approve") Call<JsonObject> approveReservation(@Path("id") String id);
 
     @POST("qr/generate/{reservationId}") Call<JsonObject> generateQr(@Path("reservationId") String reservationId);
     @POST("qr/verify") Call<JsonObject> verifyQr(@Body JsonObject body);
