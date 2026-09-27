@@ -16,12 +16,37 @@ public final class ApiUtils {
     }
 
     public static String str(JsonObject o, String key) {
-        if (o == null) return "";
-        JsonElement e = o.get(key);
-        return (e == null || e.isJsonNull()) ? "" : e.getAsString();
+        if (o == null || !o.has(key) || o.get(key).isJsonNull()) return "";
+        try {
+            return o.get(key).getAsString();
+        } catch (Exception e) {
+            return o.get(key).toString();
+        }
     }
 
     public static double num(JsonObject o, String key) {
-        try { return o.get(key).getAsDouble(); } catch (Exception e) { return 0; }
+        if (o == null || !o.has(key) || o.get(key).isJsonNull()) return 0.0;
+        try {
+            return o.get(key).getAsDouble();
+        } catch (Exception e) {
+            try {
+                return Double.parseDouble(o.get(key).getAsString());
+            } catch (Exception ignored) {
+                return 0.0;
+            }
+        }
+    }
+
+    public static int integer(JsonObject o, String key) {
+        if (o == null || !o.has(key) || o.get(key).isJsonNull()) return 0;
+        try {
+            return o.get(key).getAsInt();
+        } catch (Exception e) {
+            try {
+                return Integer.parseInt(o.get(key).getAsString());
+            } catch (Exception ignored) {
+                return 0;
+            }
+        }
     }
 }
