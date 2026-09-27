@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <!-- Map toolbar -->
+    <LinearLayout android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_header_gradient"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp" android:paddingEnd="16dp"
+        android:paddingTop="44dp" android:paddingBottom="14dp">
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Nearby Grid Nodes"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ImageView android:id="@+id/btnBack"
+            android:layout_width="36dp" android:layout_height="36dp"
+            android:src="@android:drawable/ic_media_rew"
+            android:padding="6dp"
+            android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+
+    <!-- Map fragment container -->
+    <FrameLayout
+        android:id="@+id/mapContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>
