@@ -58,5 +58,11 @@ public class ReservationService : IReservationService {
         if(r.Status!=ReservationStatus.Pending)throw new InvalidOperationException("Only pending reservations can be approved.");
         r.Status=ReservationStatus.Approved;r.ApprovedAt=DateTime.UtcNow;await _res.ReplaceAsync(id,r);return r;
     }
+    public async Task<EnergyReservation> RejectAsync(string id){
+        var r=await _res.GetByIdAsync(id)??throw new KeyNotFoundException("Reservation not found.");
+        if(r.Status!=ReservationStatus.Pending)throw new InvalidOperationException("Only pending reservations can be rejected.");
+        r.Status=ReservationStatus.Rejected;r.CancelledAt=DateTime.UtcNow;await _res.ReplaceAsync(id,r);
+        var s=await _slots.GetByIdAsync(r.EnergySlotId);if(s is not null){s.Status=SlotStatus.Available;s.AvailableCapacityKwh+=r.EnergyAmountKwh;await _slots.ReplaceAsync(s.Id,s);}return r;
+    }
     private static DateTime Combine(DateTime date,string time){return DateTime.TryParse($"{date:yyyy-MM-dd} {time}",out var x)?DateTime.SpecifyKind(x,DateTimeKind.Utc):date;}
 }

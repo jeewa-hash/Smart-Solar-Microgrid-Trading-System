@@ -458,6 +458,7 @@ public class ProsumerActivity extends BaseActivity {
         if ("Pending".equalsIgnoreCase(status))    return "⏳";
         if ("Completed".equalsIgnoreCase(status))  return "🏁";
         if ("Cancelled".equalsIgnoreCase(status))  return "❌";
+        if ("Rejected".equalsIgnoreCase(status))   return "⛔";
         return "•";
     }
 }

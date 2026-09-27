@@ -182,6 +182,7 @@ public class OperatorActivity extends BaseActivity {
         
         if ("Pending".equalsIgnoreCase(ApiUtils.str(x, "status"))) {
             b.setPositiveButton("Approve", (d, w) -> approveReservation(ApiUtils.str(x, "id")));
+            b.setNeutralButton("Reject", (d, w) -> rejectReservation(ApiUtils.str(x, "id")));
             b.setNegativeButton("Close", null);
         } else {
             b.setPositiveButton("Close", null);
@@ -197,6 +198,25 @@ public class OperatorActivity extends BaseActivity {
                 hideLoading();
                 if (r.isSuccessful()) {
                     toast("✅ Reservation Approved!");
+                    showReservations("Pending");
+                    loadDashboard();
+                } else {
+                    toast(errorMsg(r));
+                }
+            }
+            @Override
+            public void onFailure(Call<JsonObject> c, Throwable t) { hideLoading(); fail(t); }
+        });
+    }
+
+    private void rejectReservation(String id) {
+        showLoading();
+        ApiClient.get().rejectReservation(id).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> c, Response<JsonObject> r) {
+                hideLoading();
+                if (r.isSuccessful()) {
+                    toast("✅ Reservation Rejected!");
                     showReservations("Pending");
                     loadDashboard();
                 } else {

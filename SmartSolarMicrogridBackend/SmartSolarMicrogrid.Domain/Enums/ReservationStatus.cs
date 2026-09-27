@@ -1,2 +1,2 @@
 namespace SmartSolarMicrogrid.Domain.Enums;
-public enum ReservationStatus { Pending, Approved, Cancelled, Completed }
+public enum ReservationStatus { Pending, Approved, Cancelled, Completed, Rejected }

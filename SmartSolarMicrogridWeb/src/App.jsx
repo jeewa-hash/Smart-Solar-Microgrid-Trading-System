@@ -22,7 +22,7 @@ const Table=({children})=><div className="card table">{children}</div>;
 function BOHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/backoffice").then(x=>setD(x.data))},[]);return <><Title t="Backoffice Dashboard" d="Administration and microgrid overview"/><div className="stats"><Stat t="Active Prosumers" v={d.totalProsumers} I={Users}/><Stat t="Pending Accounts" v={d.pendingProsumerAccounts} I={ShieldCheck}/><Stat t="Microgrid Nodes" v={d.totalStations} I={MapPin}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/><Stat t="Pending Reservations" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved Reservations" v={d.approvedReservations} I={Activity}/><Stat t="Completed Transfers" v={d.completedTransfers} I={QrCode}/></div></>}
 
 function UserMgmt() {
-    const empty = { username: "", password: "", confirmPassword: "", role: 1, status: 0 };
+    const empty = { username: "", password: "", confirmPassword: "", role: "Backoffice", status: "Active" };
     const [f, setF] = useState(empty), [a, setA] = useState([]), [e, setE] = useState(""), [filter, setFilter] = useState("All Roles"), [edit, setEdit] = useState(null);
     const load = () => api.get("/users/internal").then(x => setA(x.data));
     useEffect(() => { load(); }, []);
@@ -31,9 +31,9 @@ function UserMgmt() {
         if (f.password !== f.confirmPassword) return setE("Passwords do not match");
         try {
             if (edit) {
-                await api.put(`/users/${edit}`, { role: +f.role, status: +f.status, ...(f.password ? { password: f.password } : {}) });
+                await api.put(`/users/${edit}`, { role: f.role, status: f.status, ...(f.password ? { password: f.password } : {}) });
             } else {
-                await api.post("/users", { username: f.username, password: f.password, role: +f.role, status: +f.status });
+                await api.post("/users", { username: f.username, password: f.password, role: f.role, status: f.status });
             }
             setF(empty); setEdit(null); setE(""); load();
         } catch (err) {
@@ -51,8 +51,8 @@ function UserMgmt() {
         setF({ username: u.username, password: "", confirmPassword: "", role: u.role, status: u.status });
         setE("");
     }
-    const fa = filter === "All Roles" ? a : a.filter(u => u.role === (filter === "Backoffice" ? 0 : 1));
-    return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value={0}>Backoffice</option><option value={1}>Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value={0}>Active</option><option value={1}>Inactive</option></select></label><div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === 0 ? "Backoffice" : "Grid Operator"}</td><td>{u.status === 0 ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button style={{marginRight:"5px",padding:"4px 8px"}} onClick={() => startEdit(u)}>Edit</button><button style={{background:"#ef4444",padding:"4px 8px"}} onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
+    const fa = filter === "All Roles" ? a : a.filter(u => u.role === (filter === "Backoffice" ? "Backoffice" : "GridOperator"));
+    return <><Title t="User Management" d="Manage internal Backoffice and Grid Operator accounts" /><div className="grid2"><form className="card" onSubmit={saveF}><h2>{edit ? "Edit User" : "Create User"}</h2>{e && <div className="err">{e}</div>}<label>Username<input required={!edit} disabled={!!edit} value={f.username} onChange={e => setF({ ...f, username: e.target.value })} /></label><label>Password<input required={!edit} type="password" value={f.password} placeholder={edit ? "Leave blank to keep current" : ""} onChange={e => setF({ ...f, password: e.target.value })} /></label><label>Confirm Password<input required={!edit && f.password} type="password" value={f.confirmPassword} onChange={e => setF({ ...f, confirmPassword: e.target.value })} /></label><label>Role<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}><option value="Backoffice">Backoffice</option><option value="GridOperator">Grid Operator</option></select></label><label>Status<select value={f.status} onChange={e => setF({ ...f, status: e.target.value })}><option value="Active">Active</option><option value="Deactivated">Inactive</option></select></label><div style={{display:"flex",gap:"10px"}}><button type="submit" style={{flex:1}}>{edit ? "Update User" : "Create User"}</button>{edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setE(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}</div></form><Table><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}><h2 style={{ margin: 0 }}>Internal Users</h2><select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: "6px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", width: "auto", marginTop: 0, fontWeight: 600, color: "#475569", cursor: "pointer" }}><option>All Roles</option><option>Backoffice</option><option>Grid Operator</option></select></div><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody>{fa.length > 0 ? fa.map(u => <tr key={u.id}><td>{u.username}</td><td>{u.role === "Backoffice" ? "Backoffice" : "Grid Operator"}</td><td>{u.status === "Active" ? "Active" : "Inactive"}</td><td>{new Date(u.createdAt).toLocaleDateString()}</td><td><button style={{marginRight:"5px",padding:"4px 8px"}} onClick={() => startEdit(u)}>Edit</button><button style={{background:"#ef4444",padding:"4px 8px"}} onClick={() => del(u.id)}>Delete</button></td></tr>) : <tr><td colSpan="5" style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>No users found for this role.</td></tr>}</tbody></table></Table></div></>;
 }
 
 function Pros(){
@@ -60,7 +60,7 @@ function Pros(){
     const load = () => api.get("/prosumers/all").then(x => setA(x.data)).catch(() => {});
     useEffect(() => { load(); }, []);
     const act = async (n, action) => { await api.put(`/prosumers/${n}/${action}`); load(); };
-    const filtered = a.filter(p => st === "Pending" ? p.accountStatus === 0 : st === "Active" ? p.accountStatus === 1 : p.accountStatus === 2);
+    const filtered = a.filter(p => st === "Pending" ? p.accountStatus === "Pending" : st === "Active" ? p.accountStatus === "Active" : p.accountStatus === "Deactivated");
     return <><Title t="Prosumer Management" d="Manage prosumer profiles and lifecycle" /><Table>
         <div className="tabs">
             <button className={st === "Pending" ? "selected" : ""} onClick={() => setSt("Pending")}>Pending</button>
@@ -71,7 +71,7 @@ function Pros(){
             <thead><tr><th>NIC</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>{filtered.map(p => <tr key={p.id}>
                 <td>{p.nic}</td><td>{p.fullName}</td><td>{p.email}</td><td>{p.phone}</td>
-                <td><span className="badge">{p.accountStatus === 0 ? "Pending" : p.accountStatus === 1 ? "Active" : "Inactive"}</span></td>
+                <td><span className="badge">{p.accountStatus === "Pending" ? "Pending" : p.accountStatus === "Active" ? "Active" : "Inactive"}</span></td>
                 <td>
                     {st === "Pending" && <button onClick={() => act(p.nic, "activate")}>Activate</button>}
                     {st === "Active" && <button style={{ background: "#ef4444" }} onClick={() => act(p.nic, "deactivate")}>Deactivate</button>}
