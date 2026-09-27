@@ -13,9 +13,10 @@ public class ProsumerService : IProsumerService {
         Validation.Required(dto.NIC,"NIC"); Validation.NIC(dto.NIC); Validation.Required(dto.Username,"Username"); Validation.Required(dto.Password,"Password");
         if((await _pros.GetAllAsync()).Any(x=>x.NIC.Equals(dto.NIC,StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("NIC already exists.");
         if((await _users.GetAllAsync()).Any(x=>x.Username.Equals(dto.Username,StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Username already exists.");
+        
         var user=new User{Id=Guid.NewGuid().ToString(),Username=dto.Username,PasswordHash=_hasher.Hash(dto.Password),Role=UserRole.Prosumer,Status=UserStatus.Pending};
         await _users.InsertAsync(user);
-        var p=new Prosumer{Id=Guid.NewGuid().ToString(),NIC=dto.NIC,FullName=dto.FullName,Email=dto.Email,Phone=dto.Phone,Address=dto.Address,UserId=user.Id,AccountStatus=UserStatus.Pending};
+        var p=new Prosumer{Id=Guid.NewGuid().ToString(),NIC=dto.NIC,FullName=dto.FullName,Email=dto.Email,Phone=dto.Phone,Address=dto.Address,UserId=user.Id,AccountStatus=UserStatus.Pending,IsDrpVerified=false,DrpVerificationRef="",NicFrontImageBase64=dto.NicFrontImageBase64,NicBackImageBase64=dto.NicBackImageBase64};
         await _pros.InsertAsync(p); return p;
     }
     public async Task<Prosumer?> GetByNicAsync(string nic)=>(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase));

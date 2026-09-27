@@ -56,13 +56,84 @@
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilNic"
                 style="@style/Widget.SmartSolar.TextInputLayout"
-                android:hint="NIC Number">
+                android:hint="NIC Number"
+                app:errorEnabled="true"
+                app:helperTextEnabled="true"
+                app:helperText="Old (981234567V) or New (199812345678)">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNic"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLength="12"
+                    android:inputType="textCapCharacters|textNoSuggestions"
                     android:imeOptions="actionNext" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NIC Images"
+                android:textColor="#333333"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/ivNicFront"
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:scaleType="centerCrop"
+                        android:background="#E0E0E0"
+                        android:src="@android:drawable/ic_menu_camera" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPickNicFront"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="FRONT IMAGE"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="8dp">
+
+                    <ImageView
+                        android:id="@+id/ivNicBack"
+                        android:layout_width="match_parent"
+                        android:layout_height="100dp"
+                        android:scaleType="centerCrop"
+                        android:background="#E0E0E0"
+                        android:src="@android:drawable/ic_menu_camera" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPickNicBack"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BACK IMAGE"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilName"
@@ -136,6 +207,7 @@
                     android:inputType="textPassword"
                     android:imeOptions="actionDone" android:singleLine="true" />
             </com.google.android.material.textfield.TextInputLayout>
+
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRegister"
