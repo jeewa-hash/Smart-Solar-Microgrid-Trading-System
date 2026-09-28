@@ -5,6 +5,8 @@ public class EnergyReservation {
     public string ReservationCode { get; set; } = "";
     public string ProsumerId { get; set; } = "";
     public string NodeId { get; set; } = "";
+    public string NodeCode { get; set; } = "";
+    public string NodeName { get; set; } = "";
     public string EnergySlotId { get; set; } = "";
     public DateTime ReservationDate { get; set; }
     public string StartTime { get; set; } = "";

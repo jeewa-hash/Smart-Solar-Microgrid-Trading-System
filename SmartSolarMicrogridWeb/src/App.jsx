@@ -1180,8 +1180,9 @@ function Stations() {
 }
 
 function Slots(){
-    const empty = {nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:"",availableCapacityKwh:"",status:"Available"};
+    const empty = {nodeId:"",slotDate:"",startTime:"08:00",endTime:"09:00",energyAmountKwh:"",status:"Available"};
     const [f,setF]=useState(empty),[nodes,setN]=useState([]),[a,setA]=useState([]),[edit,setEdit]=useState(null),[err,setErr]=useState("");
+    const [editApprovedKwh, setEditApprovedKwh] = useState(0);
     const [search, setSearch] = useState("");
 
     const load=()=>Promise.all([api.get("/microgrid-nodes"),api.get("/energy-slots")]).then(([n,s])=>{setN(n.data);setA(s.data)});
@@ -1190,6 +1191,11 @@ function Slots(){
     const selectedNode = nodes.find(n => n.id === f.nodeId);
     const isSelectedNodeInactive = selectedNode && selectedNode.status !== 0 && selectedNode.status !== "Active";
 
+    const currentTotal = +f.energyAmountKwh || 0;
+    const calculatedAvailable = edit 
+        ? Math.max(0, +(currentTotal - editApprovedKwh).toFixed(2)) 
+        : currentTotal;
+
     async function go(e){
         e.preventDefault();
         if (selectedNode && selectedNode.capacityKw) {
@@ -1197,13 +1203,9 @@ function Slots(){
                 setErr(`Total energy (${f.energyAmountKwh} kWh) cannot exceed node capacity (${selectedNode.capacityKw} kW) for ${selectedNode.nodeCode} (${selectedNode.nodeName}).`);
                 return;
             }
-            if (edit && +f.availableCapacityKwh > selectedNode.capacityKw) {
-                setErr(`Available capacity (${f.availableCapacityKwh} kWh) cannot exceed node capacity (${selectedNode.capacityKw} kW) for ${selectedNode.nodeCode} (${selectedNode.nodeName}).`);
-                return;
-            }
         }
-        if (edit && +f.availableCapacityKwh > +f.energyAmountKwh) {
-            setErr(`Available capacity (${f.availableCapacityKwh} kWh) cannot exceed total slot energy (${f.energyAmountKwh} kWh).`);
+        if (edit && +f.energyAmountKwh < editApprovedKwh) {
+            setErr(`Total energy (${f.energyAmountKwh} kWh) cannot be less than already approved reservations (${editApprovedKwh} kWh).`);
             return;
         }
         if (edit && isSelectedNodeInactive && f.status === "Available") {
@@ -1211,15 +1213,19 @@ function Slots(){
             return;
         }
         try {
-            const b = {...f, energyAmountKwh: +f.energyAmountKwh, slotDate: new Date(f.slotDate).toISOString()};
+            const b = {
+                ...f, 
+                energyAmountKwh: +f.energyAmountKwh, 
+                slotDate: new Date(f.slotDate).toISOString()
+            };
             if (edit) {
-                b.availableCapacityKwh = +f.availableCapacityKwh;
-                b.status = f.status.toString();
+                b.availableCapacityKwh = +calculatedAvailable;
+                b.status = calculatedAvailable <= 0 ? "Reserved" : f.status.toString();
                 await api.put(`/energy-slots/${edit}`, b);
             } else {
                 await api.post("/energy-slots", b);
             }
-            setEdit(null); setF(empty); setErr(""); load();
+            setEdit(null); setF(empty); setEditApprovedKwh(0); setErr(""); load();
         } catch(x) { setErr(x.response?.data?.error || "Failed to save slot. Check inputs."); }
     }
 
@@ -1228,13 +1234,14 @@ function Slots(){
         setEdit(s.id);
         const nodeForSlot = nodes.find(n => n.id === s.nodeId);
         const rawStatus = typeof s.status === 'number' ? statuses[s.status] : s.status;
+        const approvedKwh = Math.max(0, +((s.energyAmountKwh - s.availableCapacityKwh).toFixed(2)));
+        setEditApprovedKwh(approvedKwh);
         setF({
             nodeId: s.nodeId,
             slotDate: new Date(s.slotDate).toISOString().split('T')[0],
             startTime: s.startTime,
             endTime: s.endTime,
             energyAmountKwh: s.energyAmountKwh,
-            availableCapacityKwh: s.availableCapacityKwh,
             status: (nodeForSlot && nodeForSlot.status !== 0 && nodeForSlot.status !== "Active" && rawStatus === "Available") ? "Unavailable" : rawStatus
         });
         setErr("");
@@ -1301,7 +1308,7 @@ function Slots(){
                     <input
                         required
                         type="number"
-                        min="0.1"
+                        min={edit ? Math.max(0.1, editApprovedKwh) : 0.1}
                         step="0.1"
                         max={selectedNode ? selectedNode.capacityKw : undefined}
                         placeholder={selectedNode ? `Max ${selectedNode.capacityKw} kWh` : "Enter energy amount"}
@@ -1314,41 +1321,53 @@ function Slots(){
                         <label>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span>Available (kWh)</span>
-                                {selectedNode && (
-                                    <span style={{ fontSize: "12px", color: "var(--accent-primary)", fontWeight: 600 }}>
-                                        Max Capacity: {selectedNode.capacityKw} kW
-                                    </span>
-                                )}
+                                <span style={{ fontSize: "11px", color: "var(--accent-primary)", fontWeight: 600 }}>
+                                    ⚡ Auto-calculated (Total − Approved)
+                                </span>
                             </div>
                             <input
-                                required
                                 type="number"
-                                min="0"
-                                step="0.1"
-                                max={selectedNode ? Math.min(+f.energyAmountKwh || selectedNode.capacityKw, selectedNode.capacityKw) : f.energyAmountKwh}
-                                placeholder={selectedNode ? `Max ${Math.min(+f.energyAmountKwh || selectedNode.capacityKw, selectedNode.capacityKw)} kWh` : ""}
-                                value={f.availableCapacityKwh}
-                                disabled={isSelectedNodeInactive}
-                                onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}
+                                value={calculatedAvailable}
+                                readOnly
+                                disabled
+                                style={{
+                                    cursor: "not-allowed",
+                                    opacity: 0.85,
+                                    background: "rgba(255, 255, 255, 0.05)",
+                                    borderColor: "rgba(255, 255, 255, 0.15)",
+                                    fontWeight: 600,
+                                    color: calculatedAvailable > 0 ? "var(--accent-primary)" : "#f87171"
+                                }}
+                                title="Available capacity is calculated automatically based on approved reservations."
                             />
+                            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+                                {editApprovedKwh > 0 ? (
+                                    <span>Locked by <strong>{editApprovedKwh} kWh</strong> in approved reservations.</span>
+                                ) : (
+                                    <span>No approved reservations yet. Full slot ({calculatedAvailable} kWh) is available.</span>
+                                )}
+                            </div>
                         </label>
                         <label>Status
                             <select
-                                value={f.status}
-                                disabled={isSelectedNodeInactive}
+                                value={calculatedAvailable <= 0 ? "Reserved" : f.status}
+                                disabled={isSelectedNodeInactive || calculatedAvailable <= 0}
                                 onChange={e=>setF({...f,status:e.target.value})}
                             >
-                                <option value="Available" disabled={isSelectedNodeInactive}>
-                                    Available {isSelectedNodeInactive ? "(Locked - Node Inactive)" : ""}
+                                <option value="Available" disabled={isSelectedNodeInactive || calculatedAvailable <= 0}>
+                                    Available {isSelectedNodeInactive ? "(Locked - Node Inactive)" : calculatedAvailable <= 0 ? "(Locked - Fully Reserved)" : ""}
                                 </option>
                                 <option value="Unavailable">Unavailable</option>
+                                <option value="Reserved" disabled={calculatedAvailable > 0}>
+                                    Reserved {calculatedAvailable > 0 ? "(Available capacity exists)" : ""}
+                                </option>
                             </select>
                         </label>
                     </>
                 )}
                 <div className="form-actions">
                     <button type="submit" style={{flex:1}}>{edit ? "Update Slot" : "Create Slot"}</button>
-                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
+                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty); setEditApprovedKwh(0); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
                 </div>
             </form>
 
@@ -1432,10 +1451,196 @@ function Slots(){
     </>;
 }
 
-function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const load=()=>api.get(`/reservations/status/${st}`).then(x=>setA(x.data));useEffect(()=>{load();},[st]);return <><Title t="Reservations" d="Monitor and approve reservation workflow"/><Table><div className="tabs">{["Pending","Approved","Completed","Cancelled"].map(x=><button className={st===x?"selected":""} onClick={()=>setSt(x)} key={x}>{x}</button>)}</div><table><thead><tr><th>Code</th><th>Date</th><th>Time</th><th>Energy</th><th>Status</th><th/></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh} kWh</td><td><span className="badge">{r.status}</span></td><td>{st==="Pending"&&<button className="btn-success" onClick={async()=>{await api.put(`/reservations/${r.id}/approve`);load()}}>Approve</button>}</td></tr>)}</tbody></table></Table></>}
+function Res(){
+    const [st, setSt] = useState("Pending"), [a, setA] = useState([]), [nodes, setN] = useState([]);
+    const [search, setSearch] = useState("");
+    const load = () => Promise.all([
+        api.get(`/reservations/status/${st}`),
+        api.get("/microgrid-nodes")
+    ]).then(([r, n]) => {
+        setA(r.data);
+        setN(n.data);
+    });
+    useEffect(() => { load(); }, [st]);
+
+    async function approve(r){
+        try{
+            await api.put(`/reservations/${r.id}/approve`);
+            load();
+        }catch(err){
+            alert(err.response?.data?.error || "Failed to approve reservation.");
+        }
+    }
+
+    const filtered = a.filter(r => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        const node = nodes.find(n => n.id === r.nodeId || n.nodeCode === r.nodeId);
+        return (
+            r.reservationCode?.toLowerCase().includes(q) ||
+            node?.nodeCode?.toLowerCase().includes(q) ||
+            node?.nodeName?.toLowerCase().includes(q) ||
+            r.nodeCode?.toLowerCase().includes(q) ||
+            r.nodeName?.toLowerCase().includes(q) ||
+            r.nodeId?.toLowerCase().includes(q) ||
+            r.startTime?.includes(q) ||
+            r.endTime?.includes(q) ||
+            new Date(r.reservationDate).toLocaleDateString().includes(q)
+        );
+    });
+
+    return <>
+        <Title t="Reservations" d="Monitor and approve reservation workflow"/>
+        <Table>
+            <div className="table-header" style={{ marginBottom: "16px" }}>
+                <div className="tabs" style={{ margin: 0 }}>
+                    {["Pending","Approved","Completed","Cancelled"].map(x => (
+                        <button className={st === x ? "selected" : ""} onClick={() => setSt(x)} key={x}>
+                            {x}
+                        </button>
+                    ))}
+                </div>
+                <div className="table-search-bar">
+                    <Search size={16}/>
+                    <input
+                        type="text"
+                        placeholder="Filter by code, node, date..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                    {search && (
+                        <button type="button" onClick={() => setSearch("")} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "0 4px", display: "flex", alignItems: "center" }}>
+                            <X size={14}/>
+                        </button>
+                    )}
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Node / Branch</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Energy</th>
+                        <th>Status</th>
+                        {st === "Pending" && <th style={{ textAlign: "right", paddingRight: "18px" }}>Action</th>}
+                    </tr>
+                </thead>
+                <tbody>
+                    {filtered.length > 0 ? (
+                        filtered.map(r => {
+                            const node = nodes.find(n => n.id === r.nodeId || n.nodeCode === r.nodeId);
+                            const nodeCode = node?.nodeCode || r.nodeCode || r.nodeId;
+                            const nodeName = node?.nodeName || r.nodeName;
+                            const badgeClass = 
+                                r.status === "Approved" ? "badge-active" : 
+                                r.status === "Completed" ? "badge-completed" : 
+                                r.status === "Cancelled" ? "badge-inactive" : "badge-pending";
+
+                            return (
+                                <tr key={r.id}>
+                                    <td><strong>{r.reservationCode}</strong></td>
+                                    <td>
+                                        <div className="cell-branch-stack">
+                                            <div className="branch-title-row">
+                                                <strong>{nodeCode}</strong>
+                                                {nodeName && <span className="branch-subname">({nodeName})</span>}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{new Date(r.reservationDate).toLocaleDateString()}</td>
+                                    <td>{r.startTime}–{r.endTime}</td>
+                                    <td>{r.energyAmountKwh} kWh</td>
+                                    <td>
+                                        <span className={`badge ${badgeClass}`}>
+                                            {r.status}
+                                        </span>
+                                    </td>
+                                    {st === "Pending" && (
+                                        <td style={{ textAlign: "right", paddingRight: "18px" }}>
+                                            <button className="btn-success" onClick={() => approve(r)}>Approve</button>
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })
+                    ) : (
+                        <tr>
+                            <td colSpan={st === "Pending" ? 7 : 6} style={{ textAlign: "center", padding: "28px", color: "#94a3b8" }}>
+                                No {st.toLowerCase()} reservations found.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </Table>
+    </>;
+}
 
 function OpHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/operator").then(x=>setD(x.data))},[]);return <><Title t="Grid Operator Dashboard" d="Operational station monitoring"/><div className="stats"><Stat t="Pending" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved" v={d.approvedReservations} I={ShieldCheck}/><Stat t="Today's Bookings" v={d.todayBookings} I={Activity}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/></div></>}
-function Bookings(){const[st,setSt]=useState("Approved"),[a,setA]=useState([]);useEffect(()=>{api.get(`/reservations/status/${st}`).then(x=>setA(x.data))},[st]);return <><Title t="Bookings" d="View pending and approved reservations"/><Table><div className="tabs"><button className={st==="Pending"?"selected":""} onClick={()=>setSt("Pending")}>Pending</button><button className={st==="Approved"?"selected":""} onClick={()=>setSt("Approved")}>Approved</button></div><table><thead><tr><th>Code</th><th>Node</th><th>Date</th><th>Time</th><th>Energy</th></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{r.nodeId}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh}</td></tr>)}</tbody></table></Table></>}
+function Bookings(){
+    const [st, setSt] = useState("Approved"), [a, setA] = useState([]), [nodes, setN] = useState([]);
+    const load = () => Promise.all([
+        api.get(`/reservations/status/${st}`),
+        api.get("/microgrid-nodes")
+    ]).then(([r, n]) => {
+        setA(r.data);
+        setN(n.data);
+    });
+    useEffect(() => { load(); }, [st]);
+    return <>
+        <Title t="Bookings" d="View pending and approved reservations"/>
+        <Table>
+            <div className="tabs">
+                <button className={st === "Pending" ? "selected" : ""} onClick={() => setSt("Pending")}>Pending</button>
+                <button className={st === "Approved" ? "selected" : ""} onClick={() => setSt("Approved")}>Approved</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Node / Branch</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Energy</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {a.length > 0 ? (
+                        a.map(r => {
+                            const node = nodes.find(n => n.id === r.nodeId || n.nodeCode === r.nodeId);
+                            const nodeCode = node?.nodeCode || r.nodeCode || r.nodeId;
+                            const nodeName = node?.nodeName || r.nodeName;
+                            return (
+                                <tr key={r.id}>
+                                    <td><strong>{r.reservationCode}</strong></td>
+                                    <td>
+                                        <div className="cell-branch-stack">
+                                            <div className="branch-title-row">
+                                                <strong>{nodeCode}</strong>
+                                                {nodeName && <span className="branch-subname">({nodeName})</span>}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{new Date(r.reservationDate).toLocaleDateString()}</td>
+                                    <td>{r.startTime}–{r.endTime}</td>
+                                    <td>{r.energyAmountKwh} kWh</td>
+                                </tr>
+                            );
+                        })
+                    ) : (
+                        <tr>
+                            <td colSpan="5" style={{ textAlign: "center", padding: "28px", color: "#94a3b8" }}>
+                                No {st.toLowerCase()} bookings found.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </Table>
+    </>;
+}
 function Avail(){
     const [a, setA] = useState([]), [nodes, setN] = useState([]);
     const load = () => Promise.all([api.get("/energy-slots"), api.get("/microgrid-nodes")]).then(([s, n]) => { setA(s.data); setN(n.data); });
