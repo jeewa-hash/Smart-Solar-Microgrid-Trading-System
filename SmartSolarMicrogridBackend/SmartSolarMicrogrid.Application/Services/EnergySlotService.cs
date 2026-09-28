@@ -12,6 +12,8 @@ public class EnergySlotService : IEnergySlotService {
         var node=await _nodes.GetByIdAsync(d.NodeId)??throw new KeyNotFoundException("Node not found.");
         if(node.Status!=NodeStatus.Active)throw new InvalidOperationException("Cannot create slot for inactive node.");
         Validation.Positive(d.EnergyAmountKwh,"EnergyAmountKwh");
+        if(d.EnergyAmountKwh > node.CapacityKw)
+            throw new ArgumentException($"Slot energy amount ({d.EnergyAmountKwh} kWh) cannot exceed node capacity ({node.CapacityKw} kW) for {node.NodeCode} ({node.NodeName}).");
         if(d.SlotDate.Date < DateTime.UtcNow.Date || d.SlotDate.Date > DateTime.UtcNow.Date.AddDays(7))throw new ArgumentException("Slot must be within the allowed 7-day period.");
         var s=new EnergySlot{Id=Guid.NewGuid().ToString(),NodeId=d.NodeId,SlotDate=d.SlotDate.Date,StartTime=d.StartTime,EndTime=d.EndTime,EnergyAmountKwh=d.EnergyAmountKwh,AvailableCapacityKwh=d.EnergyAmountKwh};
         await _slots.InsertAsync(s);return s;
@@ -22,6 +24,13 @@ public class EnergySlotService : IEnergySlotService {
     public async Task<EnergySlot> UpdateAsync(string id,UpdateEnergySlotDto d){
         var s=await _slots.GetByIdAsync(id)??throw new KeyNotFoundException("Slot not found.");
         var node=await _nodes.GetByIdAsync(s.NodeId);
+        Validation.Positive(d.EnergyAmountKwh,"EnergyAmountKwh");
+        if(node != null && d.EnergyAmountKwh > node.CapacityKw)
+            throw new ArgumentException($"Slot energy amount ({d.EnergyAmountKwh} kWh) cannot exceed node capacity ({node.CapacityKw} kW) for {node.NodeCode} ({node.NodeName}).");
+        if(node != null && d.AvailableCapacityKwh > node.CapacityKw)
+            throw new ArgumentException($"Available capacity ({d.AvailableCapacityKwh} kWh) cannot exceed node capacity ({node.CapacityKw} kW) for {node.NodeCode} ({node.NodeName}).");
+        if(d.AvailableCapacityKwh < 0 || d.AvailableCapacityKwh > d.EnergyAmountKwh)
+            throw new ArgumentException("Available capacity must be between 0 and the total slot energy amount.");
         if(Enum.TryParse<SlotStatus>(d.Status,true,out var st)){
             if(node != null && node.Status != NodeStatus.Active && st == SlotStatus.Available)
                 throw new InvalidOperationException($"Cannot set slot to Available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
@@ -36,6 +45,8 @@ public class EnergySlotService : IEnergySlotService {
         if(node != null && node.Status != NodeStatus.Active && available > 0)
             throw new InvalidOperationException($"Cannot make slot available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
         if(available<0 || available>s.EnergyAmountKwh)throw new ArgumentException("Invalid availability.");
+        if(node != null && available > node.CapacityKw)
+            throw new ArgumentException($"Available capacity ({available} kWh) cannot exceed node capacity ({node.CapacityKw} kW) for {node.NodeCode} ({node.NodeName}).");
         s.AvailableCapacityKwh=available;s.Status=available>0?SlotStatus.Available:SlotStatus.Unavailable;s.UpdatedAt=DateTime.UtcNow;await _slots.ReplaceAsync(id,s);return s;
     }
 }

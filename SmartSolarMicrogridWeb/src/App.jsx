@@ -522,6 +522,20 @@ function Slots(){
 
     async function go(e){
         e.preventDefault();
+        if (selectedNode && selectedNode.capacityKw) {
+            if (+f.energyAmountKwh > selectedNode.capacityKw) {
+                setErr(`Total energy (${f.energyAmountKwh} kWh) cannot exceed node capacity (${selectedNode.capacityKw} kW) for ${selectedNode.nodeCode} (${selectedNode.nodeName}).`);
+                return;
+            }
+            if (edit && +f.availableCapacityKwh > selectedNode.capacityKw) {
+                setErr(`Available capacity (${f.availableCapacityKwh} kWh) cannot exceed node capacity (${selectedNode.capacityKw} kW) for ${selectedNode.nodeCode} (${selectedNode.nodeName}).`);
+                return;
+            }
+        }
+        if (edit && +f.availableCapacityKwh > +f.energyAmountKwh) {
+            setErr(`Available capacity (${f.availableCapacityKwh} kWh) cannot exceed total slot energy (${f.energyAmountKwh} kWh).`);
+            return;
+        }
         if (edit && isSelectedNodeInactive && f.status === "Available") {
             setErr(`Cannot set slot status to Available because microgrid node '${selectedNode.nodeName}' is deactivated (${selectedNode.adminNote || "Inactive"}).`);
             return;
@@ -596,7 +610,7 @@ function Slots(){
                             const isInactive = n.status !== 0 && n.status !== "Active";
                             return (
                                 <option value={n.id} key={n.id} disabled={isInactive}>
-                                    {n.nodeCode} — {n.nodeName} {isInactive ? `⚠️ [Deactivated: ${n.adminNote || "Unavailable"}]` : ""}
+                                    {n.nodeCode} — {n.nodeName} ({n.capacityKw} kW) {isInactive ? `⚠️ [Deactivated: ${n.adminNote || "Unavailable"}]` : ""}
                                 </option>
                             );
                         })}
@@ -605,16 +619,44 @@ function Slots(){
                 <label>Date<input required type="date" value={f.slotDate} onChange={e=>setF({...f,slotDate:e.target.value})}/></label>
                 <label>Start<input type="time" required value={f.startTime} onChange={e=>setF({...f,startTime:e.target.value})}/></label>
                 <label>End<input type="time" required value={f.endTime} onChange={e=>setF({...f,endTime:e.target.value})}/></label>
-                <label>Total Energy (kWh)<input required type="number" min="0.1" step="0.1" value={f.energyAmountKwh} onChange={e=>setF({...f,energyAmountKwh:e.target.value})}/></label>
+                <label>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>Total Energy (kWh)</span>
+                        {selectedNode && (
+                            <span style={{ fontSize: "12px", color: "var(--accent-primary)", fontWeight: 600 }}>
+                                Max Capacity: {selectedNode.capacityKw} kW
+                            </span>
+                        )}
+                    </div>
+                    <input
+                        required
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        max={selectedNode ? selectedNode.capacityKw : undefined}
+                        placeholder={selectedNode ? `Max ${selectedNode.capacityKw} kWh` : "Enter energy amount"}
+                        value={f.energyAmountKwh}
+                        onChange={e=>setF({...f,energyAmountKwh:e.target.value})}
+                    />
+                </label>
                 {edit && (
                     <>
-                        <label>Available (kWh)
+                        <label>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span>Available (kWh)</span>
+                                {selectedNode && (
+                                    <span style={{ fontSize: "12px", color: "var(--accent-primary)", fontWeight: 600 }}>
+                                        Max Capacity: {selectedNode.capacityKw} kW
+                                    </span>
+                                )}
+                            </div>
                             <input
                                 required
                                 type="number"
                                 min="0"
                                 step="0.1"
-                                max={f.energyAmountKwh}
+                                max={selectedNode ? Math.min(+f.energyAmountKwh || selectedNode.capacityKw, selectedNode.capacityKw) : f.energyAmountKwh}
+                                placeholder={selectedNode ? `Max ${Math.min(+f.energyAmountKwh || selectedNode.capacityKw, selectedNode.capacityKw)} kWh` : ""}
                                 value={f.availableCapacityKwh}
                                 disabled={isSelectedNodeInactive}
                                 onChange={e=>setF({...f,availableCapacityKwh:e.target.value})}
@@ -724,7 +766,30 @@ function Res(){const[st,setSt]=useState("Pending"),[a,setA]=useState([]);const l
 
 function OpHome(){const[d,setD]=useState({});useEffect(()=>{api.get("/dashboard/operator").then(x=>setD(x.data))},[]);return <><Title t="Grid Operator Dashboard" d="Operational station monitoring"/><div className="stats"><Stat t="Pending" v={d.pendingReservations} I={CalendarDays}/><Stat t="Approved" v={d.approvedReservations} I={ShieldCheck}/><Stat t="Today's Bookings" v={d.todayBookings} I={Activity}/><Stat t="Available Slots" v={d.availableSlots} I={Battery}/></div></>}
 function Bookings(){const[st,setSt]=useState("Approved"),[a,setA]=useState([]);useEffect(()=>{api.get(`/reservations/status/${st}`).then(x=>setA(x.data))},[st]);return <><Title t="Bookings" d="View pending and approved reservations"/><Table><div className="tabs"><button className={st==="Pending"?"selected":""} onClick={()=>setSt("Pending")}>Pending</button><button className={st==="Approved"?"selected":""} onClick={()=>setSt("Approved")}>Approved</button></div><table><thead><tr><th>Code</th><th>Node</th><th>Date</th><th>Time</th><th>Energy</th></tr></thead><tbody>{a.map(r=><tr key={r.id}><td>{r.reservationCode}</td><td>{r.nodeId}</td><td>{new Date(r.reservationDate).toLocaleDateString()}</td><td>{r.startTime}–{r.endTime}</td><td>{r.energyAmountKwh}</td></tr>)}</tbody></table></Table></>}
-function Avail(){const[a,setA]=useState([]);const load=()=>api.get("/energy-slots").then(x=>setA(x.data));useEffect(()=>{load();},[]);async function up(s){const v=prompt("Available capacity",s.availableCapacityKwh);if(v!=null){await api.put(`/energy-slots/${s.id}/availability?availableCapacityKwh=${v}`);load()}}return <><Title t="Energy Availability" d="Update battery and energy slot availability"/><Table><table><thead><tr><th>Slot</th><th>Total</th><th>Available</th><th>Status</th><th/></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td><td><button className="btn-edit" onClick={()=>up(s)}>Update</button></td></tr>)}</tbody></table></Table></>}
+function Avail(){
+    const [a, setA] = useState([]), [nodes, setN] = useState([]);
+    const load = () => Promise.all([api.get("/energy-slots"), api.get("/microgrid-nodes")]).then(([s, n]) => { setA(s.data); setN(n.data); });
+    useEffect(() => { load(); }, []);
+    async function up(s) {
+        const node = nodes.find(n => n.id === s.nodeId);
+        const maxAllowed = node?.capacityKw ? Math.min(s.energyAmountKwh, node.capacityKw) : s.energyAmountKwh;
+        const v = prompt(`Available capacity (Max: ${maxAllowed} kWh):`, s.availableCapacityKwh);
+        if (v != null) {
+            const num = parseFloat(v);
+            if (isNaN(num) || num < 0 || num > maxAllowed) {
+                alert(`Invalid available capacity. Must be between 0 and ${maxAllowed} kWh (Node Capacity: ${node?.capacityKw || 'N/A'} kW, Slot Total: ${s.energyAmountKwh} kWh).`);
+                return;
+            }
+            try {
+                await api.put(`/energy-slots/${s.id}/availability?availableCapacityKwh=${num}`);
+                load();
+            } catch (err) {
+                alert(err.response?.data?.error || "Failed to update availability");
+            }
+        }
+    }
+    return <><Title t="Energy Availability" d="Update battery and energy slot availability"/><Table><table><thead><tr><th>Slot</th><th>Total</th><th>Available</th><th>Status</th><th/></tr></thead><tbody>{a.map(s=><tr key={s.id}><td>{s.startTime}–{s.endTime}</td><td>{s.energyAmountKwh}</td><td>{s.availableCapacityKwh}</td><td>{s.status}</td><td><button className="btn-edit" onClick={()=>up(s)}>Update</button></td></tr>)}</tbody></table></Table></>;
+}
 function QR(){const[t,setT]=useState(""),[r,setR]=useState(null),[e,setE]=useState("");async function verify(){try{const x=await api.post("/qr/verify",{qrToken:t});setR(x.data);setE("")}catch(x){setE(x.response?.data?.error||"Invalid QR")}}async function complete(){try{const x=await api.post("/qr/complete",{qrToken:t});setR(x.data)}catch(x){setE(x.response?.data?.error||"Cannot complete")}}return <><Title t="QR Transaction Verification" d="Verify and finalize Prosumer energy transfers"/><div className="card qr"><QrCode size={48}/><textarea placeholder="Paste scanned QR token" value={t} onChange={e=>setT(e.target.value)}/>{e&&<div className="err">{e}</div>}<div className="qr-actions"><button onClick={verify}>Verify Transaction</button>{r?.valid&&<button onClick={complete}>Complete Transfer</button>}</div>{r&&<pre>{JSON.stringify(r,null,2)}</pre>}</div></>}
 
 export default function App(){return <Routes><Route path="/login" element={<Login/>}/><Route path="/backoffice/*" element={<Guard role="Backoffice"/>}/><Route path="/operator/*" element={<Guard role="GridOperator"/>}/><Route path="*" element={<Navigate to="/login"/>}/></Routes>}
