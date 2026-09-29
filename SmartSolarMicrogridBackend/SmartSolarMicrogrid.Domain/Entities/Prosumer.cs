@@ -11,6 +11,7 @@ public class Prosumer {
     public bool IsDrpVerified { get; set; } = false;
     public UserStatus AccountStatus { get; set; } = UserStatus.Pending;
     public string DrpVerificationRef { get; set; } = "";
+    public string? ExtractedNicNumber { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public string NicFrontImageBase64 { get; set; } = "";

@@ -12,6 +12,8 @@ public class ProsumersController(IProsumerService service):ControllerBase {
     [Authorize(Roles="Backoffice"),HttpGet("pending")] public async Task<IActionResult> Pending()=>Ok(await service.GetPendingAsync());
     [Authorize(Roles="Backoffice"),HttpGet("all")] public async Task<IActionResult> All()=>Ok(await service.GetAllAsync());
     [Authorize(Roles="Backoffice"),HttpPut("{nic}/activate")] public async Task<IActionResult> Activate(string nic)=>Ok(await service.SetStatusAsync(nic,"activate"));
+    [Authorize(Roles="Backoffice"),HttpPut("{nic}/verify-nic")] public async Task<IActionResult> VerifyNic(string nic)=>Ok(await service.SetStatusAsync(nic,"verify-nic"));
     [Authorize(Roles="Backoffice"),HttpPut("{nic}/deactivate")] public async Task<IActionResult> Deactivate(string nic)=>Ok(await service.SetStatusAsync(nic,"deactivate"));
     [Authorize(Roles="Backoffice"),HttpPut("{nic}/reactivate")] public async Task<IActionResult> Reactivate(string nic)=>Ok(await service.SetStatusAsync(nic,"reactivate"));
+    [Authorize(Roles="Backoffice"),HttpPut("{nic}/reject")] public async Task<IActionResult> Reject(string nic)=>Ok(await service.SetStatusAsync(nic,"reject"));
 }
