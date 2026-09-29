@@ -9,10 +9,9 @@ public class AuthService : IAuthService {
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request){
         var user=(await _users.GetAllAsync()).FirstOrDefault(x=>x.Username.Equals(request.Username,StringComparison.OrdinalIgnoreCase));
         if(user is null || !_hasher.Verify(request.Password,user.PasswordHash)) throw new UnauthorizedAccessException("Invalid username or password.");
-        if(user.Status != SmartSolarMicrogrid.Domain.Enums.UserStatus.Active) {
-            user.Status = SmartSolarMicrogrid.Domain.Enums.UserStatus.Active;
-            await _users.ReplaceAsync(user.Id, user);
-        }
+        if(user.Status == SmartSolarMicrogrid.Domain.Enums.UserStatus.Pending) throw new UnauthorizedAccessException("Account is pending approval.");
+        if(user.Status == SmartSolarMicrogrid.Domain.Enums.UserStatus.Deactivated) throw new UnauthorizedAccessException("Account is deactivated.");
+
         string nic = "";
         if (user.Role == SmartSolarMicrogrid.Domain.Enums.UserRole.Prosumer) {
             var p = (await _prosumers.GetAllAsync()).FirstOrDefault(x => x.UserId == user.Id);

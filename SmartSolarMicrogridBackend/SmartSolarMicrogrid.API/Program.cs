@@ -37,6 +37,7 @@ builder.Services.AddScoped<IReservationService,ReservationService>();
 builder.Services.AddScoped<IQRTransactionService,QRTransactionService>();
 builder.Services.AddScoped<IDashboardService,DashboardService>();
 builder.Services.AddScoped<IUserService,UserService>();
+builder.Services.AddScoped<IOcrService,NicOcrService>();
 
 var jwtKey=builder.Configuration["Jwt:Key"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{

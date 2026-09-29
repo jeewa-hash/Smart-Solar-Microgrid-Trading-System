@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "E:\\4th year\\semester 2\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj": {}
+    "C:\\Users\\osher\\OneDrive\\Desktop\\EAD new assignmnt\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj": {}
   },
   "projects": {
-    "E:\\4th year\\semester 2\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj": {
+    "C:\\Users\\osher\\OneDrive\\Desktop\\EAD new assignmnt\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\4th year\\semester 2\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj",
+        "projectUniqueName": "C:\\Users\\osher\\OneDrive\\Desktop\\EAD new assignmnt\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj",
         "projectName": "SmartSolarMicrogridBackend",
-        "projectPath": "E:\\4th year\\semester 2\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj",
-        "packagesPath": "C:\\Users\\Lenovo\\.nuget\\packages\\",
-        "outputPath": "E:\\4th year\\semester 2\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\obj\\",
+        "projectPath": "C:\\Users\\osher\\OneDrive\\Desktop\\EAD new assignmnt\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\SmartSolarMicrogridBackend.csproj",
+        "packagesPath": "C:\\Users\\osher\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\osher\\OneDrive\\Desktop\\EAD new assignmnt\\Smart-Solar-Microgrid-Trading-System\\SmartSolarMicrogridBackend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Lenovo\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\osher\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -24,6 +24,7 @@
         },
         "frameworks": {
           "net8.0": {
+            "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {}
           }
@@ -38,10 +39,11 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.300"
       },
       "frameworks": {
         "net8.0": {
+          "framework": "net8.0",
           "targetAlias": "net8.0",
           "dependencies": {
             "Swashbuckle.AspNetCore": {
@@ -60,6 +62,24 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.29, 8.0.29]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.win-x64",
+              "version": "[8.0.29, 8.0.29]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.29, 8.0.29]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.29, 8.0.29]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -68,7 +88,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
