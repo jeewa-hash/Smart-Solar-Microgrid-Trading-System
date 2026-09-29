@@ -488,6 +488,18 @@ body {
   color: #f87171 !important;
   text-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important;
 }
+.badge-pending {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.4) !important;
+}
+.badge-completed {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #38bdf8 !important;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4) !important;
+}
 
 /* Clean Reason Pill (Organized, Pill-Style Badge) */
 .reason-pill {
