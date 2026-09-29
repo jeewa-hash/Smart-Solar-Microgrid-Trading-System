@@ -1,4 +1,4 @@
-package com.smartsolar.microgrid.util;
+package com.smartsenergy.microgrid.utils;
 
 import org.junit.Test;
 import static org.junit.Assert.*;

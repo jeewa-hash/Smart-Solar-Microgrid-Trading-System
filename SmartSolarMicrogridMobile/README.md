@@ -61,7 +61,7 @@ Base path: `/api/`
 ## Configure API URL
 
 Edit:
-`app/src/main/java/com/smartsolar/microgrid/util/SessionManager.java`
+`app/src/main/java/com/smartsenergy/microgrid/utils/SessionManager.java`
 
 Change:
 `BASE_URL`

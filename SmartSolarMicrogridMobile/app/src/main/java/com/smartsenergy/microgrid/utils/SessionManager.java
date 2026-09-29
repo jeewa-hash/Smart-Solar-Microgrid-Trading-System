@@ -1,10 +1,10 @@
-package com.smartsolar.microgrid.util;
+package com.smartsenergy.microgrid.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 
 public final class SessionManager {
-    public static final String BASE_URL = "http://10.0.2.2:5000/api/";
+    public static final String BASE_URL = "http://10.0.2.2:5053/api/";
     private static SessionManager instance;
     private final SharedPreferences sp;
 
@@ -22,7 +22,8 @@ public final class SessionManager {
     }
 
     public String getBaseUrl() {
-        return sp.getString("base_url", BASE_URL);
+        // Force return the new BASE_URL to override any old port saved in SharedPreferences
+        return BASE_URL;
     }
 
     public void setBaseUrl(String url) {

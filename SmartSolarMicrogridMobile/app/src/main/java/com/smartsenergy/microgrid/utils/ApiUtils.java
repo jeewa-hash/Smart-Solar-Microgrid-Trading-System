@@ -1,4 +1,4 @@
-package com.smartsolar.microgrid.util;
+package com.smartsenergy.microgrid.utils;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

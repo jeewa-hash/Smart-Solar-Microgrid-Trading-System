@@ -1,4 +1,4 @@
-package com.smartsolar.microgrid.util;
+package com.smartsenergy.microgrid.utils;
 
 import java.util.Arrays;
 import java.util.Calendar;

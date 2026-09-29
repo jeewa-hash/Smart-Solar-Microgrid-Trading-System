@@ -1,6 +1,6 @@
-package com.smartsolar.microgrid.api;
+package com.smartsenergy.microgrid.api;
 
-import com.smartsolar.microgrid.util.SessionManager;
+import com.smartsenergy.microgrid.utils.SessionManager;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;

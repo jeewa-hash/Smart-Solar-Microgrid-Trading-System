@@ -1,4 +1,4 @@
-package com.smartsolar.microgrid.ui;
+package com.smartsenergy.microgrid;
 
 import android.app.ProgressDialog;
 import android.os.Bundle;
@@ -11,7 +11,7 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.smartsolar.microgrid.R;
-import com.smartsolar.microgrid.util.SessionManager;
+import com.smartsenergy.microgrid.utils.SessionManager;
 import retrofit2.Response;
 
 public abstract class BaseActivity extends AppCompatActivity {
@@ -104,7 +104,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     // ── Logout helper ───────────────────────────────────────
     protected void doLogout() {
         session.clear();
-        android.content.Intent i = new android.content.Intent(this, LoginActivity.class);
+        android.content.Intent i = new android.content.Intent(this, com.smartsolar.microgrid.ui.LoginActivity.class);
         i.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                 | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(i);
