@@ -33,3 +33,15 @@ E:\4th year\semester 2\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridB
 E:\4th year\semester 2\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.pdb
 E:\4th year\semester 2\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.genruntimeconfig.cache
 E:\4th year\semester 2\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\ref\SmartSolarMicrogridBackend.dll
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.csproj.AssemblyReference.cache
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.AssemblyInfoInputs.cache
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.AssemblyInfo.cs
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.csproj.CoreCompileInputs.cache
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.sourcelink.json
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.dll
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\refint\SmartSolarMicrogridBackend.dll
+C:\Users\osher\OneDrive\Desktop\EAD new assignmnt\Smart-Solar-Microgrid-Trading-System\SmartSolarMicrogridBackend\obj\Debug\net8.0\SmartSolarMicrogridBackend.pdb
