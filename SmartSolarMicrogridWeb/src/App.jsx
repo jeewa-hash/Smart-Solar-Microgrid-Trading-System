@@ -1,7 +1,7 @@
-import React,{useEffect,useState} from "react";
+import React,{useEffect,useState,useRef} from "react";
 import {Routes,Route,Navigate,useNavigate,useLocation} from "react-router-dom";
 import {api,user} from "./api";
-import {Sun,LayoutDashboard,Users,MapPin,Battery,CalendarDays,QrCode,LogOut,Menu,X,ShieldCheck,Activity,UserPlus,Eye,EyeOff,AlertTriangle,Search} from "lucide-react";
+import {Sun,LayoutDashboard,Users,MapPin,Battery,CalendarDays,QrCode,LogOut,Menu,X,ShieldCheck,Activity,UserPlus,Eye,EyeOff,AlertTriangle,Search,Navigation,Crosshair,ExternalLink,CheckCircle2,Loader2,Map,Compass,Check,AlertCircle} from "lucide-react";
 
 const save=(d)=>{localStorage.setItem("token",d.token);localStorage.setItem("user",JSON.stringify(d));};
 const logout=()=>{localStorage.clear();location.href="/login"};
@@ -399,12 +399,492 @@ function Pros(){
     )}
     </>;
 }
+function LocationPickerModal({ initialLat, initialLng, initialName, isOpen, onClose, onSelectLocation }) {
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchError, setSearchError] = useState("");
+    const [isMapReady, setIsMapReady] = useState(false);
+    const [selectedCoords, setSelectedCoords] = useState([
+        initialLat && !isNaN(+initialLat) ? +initialLat : 6.9271,
+        initialLng && !isNaN(+initialLng) ? +initialLng : 79.8612
+    ]);
+    const [selectedPlaceName, setSelectedPlaceName] = useState(initialName || "");
+    const [isLocating, setIsLocating] = useState(false);
+
+    const mapContainerRef = useRef(null);
+    const mapInstanceRef = useRef(null);
+    const markerRef = useRef(null);
+
+    // Instant local Sri Lanka & Renewable Energy Hubs dataset for zero-latency search
+    const popularLocations = [
+        { name: "Hambantota Solar Park (100MW)", lat: 6.1429, lng: 81.1212, category: "Solar Park" },
+        { name: "Mirijjawila Solar Power Station", lat: 6.1685, lng: 81.0820, category: "Solar Park" },
+        { name: "Siyambalanduwa Renewable Hub", lat: 6.9064, lng: 81.5542, category: "Solar Station" },
+        { name: "Pooneryn Renewable Energy Park", lat: 9.5028, lng: 80.2014, category: "Solar & Wind Hub" },
+        { name: "Maduru Oya Floating Solar Facility", lat: 7.6481, lng: 81.2185, category: "Floating Solar" },
+        { name: "Colombo Central Solar Hub", lat: 6.9271, lng: 79.8612, category: "Urban Hub" },
+        { name: "Colombo Fort Grid Substation", lat: 6.9344, lng: 79.8428, category: "Grid Station" },
+        { name: "Kandy Central Solar Station", lat: 7.2906, lng: 80.6337, category: "Regional Hub" },
+        { name: "Galle Southern Microgrid", lat: 6.0535, lng: 80.2210, category: "Regional Hub" },
+        { name: "Anuradhapura Solar Node", lat: 8.3114, lng: 80.4037, category: "North Central Hub" },
+        { name: "Jaffna Peninsula Solar Hub", lat: 9.6615, lng: 80.0255, category: "Northern Hub" },
+        { name: "Trincomalee Deep Bay Station", lat: 8.5874, lng: 81.2152, category: "Eastern Hub" },
+        { name: "Kurunegala Wayamba Solar Hub", lat: 7.4863, lng: 80.3623, category: "Regional Hub" },
+        { name: "Negombo Coastal Solar Node", lat: 7.2008, lng: 79.8736, category: "Coastal Node" },
+        { name: "Matara Southern Grid Station", lat: 5.9549, lng: 80.5550, category: "Regional Hub" },
+        { name: "Batticaloa East Coast Solar", lat: 7.7310, lng: 81.6747, category: "Regional Hub" },
+        { name: "Polonnaruwa Ancient City Solar", lat: 7.9403, lng: 81.0188, category: "North Central Node" },
+        { name: "Badulla Uva Solar Station", lat: 6.9934, lng: 81.0550, category: "Uva Hub" },
+        { name: "Ratnapura Sabaragamuwa Grid", lat: 6.6828, lng: 80.4010, category: "Regional Hub" },
+        { name: "Nuwara Eliya Hill Station", lat: 6.9497, lng: 80.7891, category: "Central Grid" },
+        { name: "Puttalam Wind & Solar Complex", lat: 8.0362, lng: 79.8283, category: "Renewable Hub" },
+        { name: "Mannar Island Energy Node", lat: 8.9810, lng: 79.9042, category: "Renewable Hub" }
+    ];
+
+    const presetRegions = [
+        { name: "Colombo", lat: 6.9271, lng: 79.8612 },
+        { name: "Hambantota", lat: 6.1429, lng: 81.1212 },
+        { name: "Kandy", lat: 7.2906, lng: 80.6337 },
+        { name: "Galle", lat: 6.0535, lng: 80.2210 },
+        { name: "Anuradhapura", lat: 8.3114, lng: 80.4037 },
+        { name: "Jaffna", lat: 9.6615, lng: 80.0255 },
+        { name: "Trincomalee", lat: 8.5874, lng: 81.2152 }
+    ];
+
+    // Multi-CDN Leaflet dynamic loader
+    const ensureLeaflet = () => {
+        return new Promise((resolve) => {
+            if (window.L && typeof window.L.map === "function") {
+                resolve(window.L);
+                return;
+            }
+
+            if (!document.getElementById("leaflet-css")) {
+                const link = document.createElement("link");
+                link.id = "leaflet-css";
+                link.rel = "stylesheet";
+                link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+                document.head.appendChild(link);
+            }
+
+            if (!document.getElementById("leaflet-js")) {
+                const script = document.createElement("script");
+                script.id = "leaflet-js";
+                script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+                script.onload = () => resolve(window.L);
+                script.onerror = () => {
+                    const fallback = document.createElement("script");
+                    fallback.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js";
+                    fallback.onload = () => resolve(window.L);
+                    fallback.onerror = () => resolve(null);
+                    document.head.appendChild(fallback);
+                };
+                document.head.appendChild(script);
+            } else {
+                let attempts = 0;
+                const check = setInterval(() => {
+                    attempts++;
+                    if (window.L && typeof window.L.map === "function") {
+                        clearInterval(check);
+                        resolve(window.L);
+                    } else if (attempts > 30) {
+                        clearInterval(check);
+                        resolve(null);
+                    }
+                }, 100);
+            }
+        });
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const lat = initialLat && !isNaN(+initialLat) ? +initialLat : 6.9271;
+        const lng = initialLng && !isNaN(+initialLng) ? +initialLng : 79.8612;
+        setSelectedCoords([lat, lng]);
+        setSelectedPlaceName(initialName || "");
+        setSearchQuery("");
+        setSearchResults([]);
+        setSearchError("");
+
+        let active = true;
+
+        ensureLeaflet().then((L) => {
+            if (!active || !L || !mapContainerRef.current) return;
+
+            try {
+                if (mapContainerRef.current._leaflet_id) {
+                    delete mapContainerRef.current._leaflet_id;
+                }
+
+                if (mapInstanceRef.current) {
+                    mapInstanceRef.current.remove();
+                    mapInstanceRef.current = null;
+                }
+
+                const createPin = () => {
+                    return L.divIcon({
+                        className: 'custom-map-marker-pin',
+                        html: `<div style="background:#10b981;width:26px;height:26px;border-radius:50%;border:3px solid #ffffff;box-shadow:0 0 20px rgba(16,185,129,0.9);display:flex;align-items:center;justify-content:center;cursor:pointer;"><div style="background:#ffffff;width:8px;height:8px;border-radius:50%;"></div></div>`,
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    });
+                };
+
+                const map = L.map(mapContainerRef.current, {
+                    center: [lat, lng],
+                    zoom: 12,
+                    zoomControl: true,
+                    attributionControl: true
+                });
+
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(map);
+
+                const marker = L.marker([lat, lng], {
+                    draggable: true,
+                    icon: createPin()
+                }).addTo(map);
+
+                marker.on("dragend", (e) => {
+                    const pos = e.target.getLatLng();
+                    const newLat = Number(pos.lat.toFixed(6));
+                    const newLng = Number(pos.lng.toFixed(6));
+                    setSelectedCoords([newLat, newLng]);
+                });
+
+                map.on("click", (e) => {
+                    const newLat = Number(e.latlng.lat.toFixed(6));
+                    const newLng = Number(e.latlng.lng.toFixed(6));
+                    setSelectedCoords([newLat, newLng]);
+                    marker.setLatLng([newLat, newLng]);
+                });
+
+                mapInstanceRef.current = map;
+                markerRef.current = marker;
+                setIsMapReady(true);
+
+                // Multiple invalidation passes to prevent grey map tiles
+                setTimeout(() => map && map.invalidateSize(), 150);
+                setTimeout(() => map && map.invalidateSize(), 350);
+            } catch (err) {
+                console.error("Map initialization error:", err);
+            }
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [isOpen, initialLat, initialLng, initialName]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setIsMapReady(false);
+            if (mapInstanceRef.current) {
+                mapInstanceRef.current.remove();
+                mapInstanceRef.current = null;
+                markerRef.current = null;
+            }
+        }
+    }, [isOpen]);
+
+    const updateMapPosition = (lat, lng, zoom = 14, name = "") => {
+        const fixedLat = Number(Number(lat).toFixed(6));
+        const fixedLng = Number(Number(lng).toFixed(6));
+        setSelectedCoords([fixedLat, fixedLng]);
+        if (name) setSelectedPlaceName(name);
+
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.setView([fixedLat, fixedLng], zoom);
+            if (markerRef.current) {
+                markerRef.current.setLatLng([fixedLat, fixedLng]);
+            }
+            setTimeout(() => mapInstanceRef.current?.invalidateSize(), 100);
+        }
+    };
+
+    // Live search combining instant local database + Nominatim API
+    const handleSearch = async (e) => {
+        if (e) e.preventDefault();
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return;
+
+        setIsSearching(true);
+        setSearchError("");
+
+        // 1. Instant local matching
+        const localMatches = popularLocations.filter(loc => 
+            loc.name.toLowerCase().includes(query) || 
+            loc.category.toLowerCase().includes(query)
+        ).map(loc => ({
+            display_name: `${loc.name} (${loc.category})`,
+            lat: loc.lat.toString(),
+            lon: loc.lng.toString(),
+            isLocal: true
+        }));
+
+        setSearchResults(localMatches);
+
+        // 2. Fetch live global/regional geocoding
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6`,
+                { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                const apiData = await res.json();
+                if (Array.isArray(apiData) && apiData.length > 0) {
+                    const combined = [...localMatches];
+                    apiData.forEach(item => {
+                        if (!combined.some(c => Math.abs(parseFloat(c.lat) - parseFloat(item.lat)) < 0.01 && Math.abs(parseFloat(c.lon) - parseFloat(item.lon)) < 0.01)) {
+                            combined.push(item);
+                        }
+                    });
+                    setSearchResults(combined);
+                } else if (localMatches.length === 0) {
+                    setSearchError("No locations found for this query. Try a city or district name (e.g. Kandy, Hambantota, Galle).");
+                }
+            } else if (localMatches.length === 0) {
+                setSearchError("No results found. Please check spelling or select from quick hubs below.");
+            }
+        } catch (err) {
+            if (localMatches.length === 0) {
+                setSearchError("Could not reach online geocoding. Please pick a location from the map or quick hubs.");
+            }
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    // Live auto-filter as user types
+    const handleInputChange = (e) => {
+        const val = e.target.value;
+        setSearchQuery(val);
+        if (!val.trim()) {
+            setSearchResults([]);
+            setSearchError("");
+            return;
+        }
+
+        const query = val.toLowerCase().trim();
+        const instantMatches = popularLocations.filter(loc => 
+            loc.name.toLowerCase().includes(query) || 
+            loc.category.toLowerCase().includes(query)
+        ).map(loc => ({
+            display_name: `${loc.name} (${loc.category})`,
+            lat: loc.lat.toString(),
+            lon: loc.lng.toString(),
+            isLocal: true
+        }));
+
+        if (instantMatches.length > 0) {
+            setSearchResults(instantMatches);
+            setSearchError("");
+        }
+    };
+
+    const selectSearchResult = (item) => {
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        const shortName = item.display_name.split(",")[0].split("(")[0].trim();
+        updateMapPosition(lat, lon, 14, shortName);
+        setSearchResults([]);
+        setSearchQuery(item.display_name.split(",")[0]);
+    };
+
+    const detectCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            setSearchError("Geolocation is not supported by your browser.");
+            return;
+        }
+        setIsLocating(true);
+        setSearchError("");
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                updateMapPosition(lat, lng, 15, "Current GPS Device Location");
+                setIsLocating(false);
+            },
+            (err) => {
+                setIsLocating(false);
+                let msg = "Could not retrieve GPS location.";
+                if (err.code === 1) msg = "Location permission denied in browser.";
+                else if (err.code === 2) msg = "Position unavailable from GPS.";
+                else if (err.code === 3) msg = "GPS location request timed out.";
+                setSearchError(msg);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
+    const handleConfirm = () => {
+        onSelectLocation({
+            latitude: selectedCoords[0],
+            longitude: selectedCoords[1],
+            placeName: selectedPlaceName
+        });
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="map-picker-modal" onClick={e => e.stopPropagation()}>
+                <div className="map-picker-header">
+                    <div className="map-picker-title">
+                        <Compass size={24} style={{ color: "var(--accent-primary)" }} />
+                        <div>
+                            <h3>Select Node Location</h3>
+                            <p>Search any city/address or click anywhere on the map to position the microgrid pin</p>
+                        </div>
+                    </div>
+                    <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="map-picker-body">
+                    {/* Search Bar & Auto-Detect Controls */}
+                    <div className="map-picker-controls">
+                        <form onSubmit={handleSearch} className="map-search-form">
+                            <div className="map-search-input-wrap">
+                                <Search size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search city, town, or solar park (e.g. Hambantota, Kandy, Galle)..."
+                                    value={searchQuery}
+                                    onChange={handleInputChange}
+                                />
+                                {searchQuery && (
+                                    <button
+                                        type="button"
+                                        className="search-clear-btn"
+                                        onClick={() => { setSearchQuery(""); setSearchResults([]); }}
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+                            <button type="submit" className="map-search-btn" disabled={isSearching}>
+                                {isSearching ? <Loader2 size={15} className="spin-icon" /> : "Search"}
+                            </button>
+                        </form>
+
+                        <button
+                            type="button"
+                            className="map-my-location-btn"
+                            onClick={detectCurrentLocation}
+                            disabled={isLocating}
+                            title="Center on my current GPS location"
+                        >
+                            {isLocating ? <Loader2 size={14} className="spin-icon" /> : <Navigation size={14} />}
+                            <span>My GPS</span>
+                        </button>
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {searchResults.length > 0 && (
+                        <div className="map-search-dropdown">
+                            <div className="map-search-dropdown-title">Matching Locations (Click to place marker):</div>
+                            {searchResults.map((item, idx) => (
+                                <div
+                                    key={idx}
+                                    className="map-search-item"
+                                    onClick={() => selectSearchResult(item)}
+                                >
+                                    <MapPin size={14} style={{ color: "var(--accent-primary)", flexShrink: 0 }} />
+                                    <span className="map-search-item-text">{item.display_name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {searchError && (
+                        <div className="map-error-alert">
+                            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                            <span>{searchError}</span>
+                        </div>
+                    )}
+
+                    {/* Quick Preset Regions */}
+                    <div className="preset-chips-container">
+                        <span className="preset-label">Quick Hubs:</span>
+                        <div className="preset-chips-list">
+                            {presetRegions.map(p => (
+                                <button
+                                    key={p.name}
+                                    type="button"
+                                    className="preset-region-chip"
+                                    onClick={() => updateMapPosition(p.lat, p.lng, 13, p.name)}
+                                >
+                                    <MapPin size={11} />
+                                    {p.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Interactive Map Canvas */}
+                    <div className="map-canvas-container">
+                        <div ref={mapContainerRef} className="leaflet-map-canvas" />
+                        <div className="map-hint-badge">
+                            <Crosshair size={13} /> Click map or drag marker to set exact coordinates
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Bar */}
+                <div className="map-picker-footer">
+                    <div className="map-coords-display">
+                        <div className="map-coords-row">
+                            <span className="coord-label">Latitude:</span>
+                            <strong className="coord-value">{selectedCoords[0]}</strong>
+                        </div>
+                        <div className="map-coords-row">
+                            <span className="coord-label">Longitude:</span>
+                            <strong className="coord-value">{selectedCoords[1]}</strong>
+                        </div>
+                        {selectedPlaceName && (
+                            <div className="map-coords-row location-tag">
+                                <MapPin size={12} style={{ color: "var(--accent-primary)" }} />
+                                <span>{selectedPlaceName}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="map-footer-actions">
+                        <button type="button" className="btn-cancel" onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button type="button" className="btn-apply-location" onClick={handleConfirm}>
+                            <Check size={16} /> Apply Location
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function Stations() {
     const [a, setA] = useState([]), [edit, setEdit] = useState(null), [err, setErr] = useState("");
     const [search, setSearch] = useState("");
     const [deactModal, setDeactModal] = useState(null);
     const [deactReason, setDeactReason] = useState("");
     const [modalErr, setModalErr] = useState("");
+    const [gpsLoading, setGpsLoading] = useState(false);
+    const [gpsStatus, setGpsStatus] = useState(null);
+    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
     const getNextCode = (nodes) => {
         if (!nodes || nodes.length === 0) return "N-001";
@@ -424,6 +904,58 @@ function Stations() {
     });
     useEffect(() => { load(); }, []);
 
+    const getCurrentGpsLocation = () => {
+        if (!navigator.geolocation) {
+            setGpsStatus({ type: "error", message: "Geolocation is not supported by your browser." });
+            return;
+        }
+        setGpsLoading(true);
+        setGpsStatus(null);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = Number(position.coords.latitude.toFixed(6));
+                const lng = Number(position.coords.longitude.toFixed(6));
+                const acc = Math.round(position.coords.accuracy);
+                setF(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                setGpsStatus({
+                    type: "success",
+                    message: `GPS acquired: ${lat}, ${lng} (Accuracy: ±${acc}m)`
+                });
+                setGpsLoading(false);
+            },
+            (error) => {
+                let msg = "Failed to retrieve GPS location.";
+                if (error.code === error.PERMISSION_DENIED) {
+                    msg = "Location permission denied. Please enable location access in browser settings.";
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    msg = "Location information is unavailable.";
+                } else if (error.code === error.TIMEOUT) {
+                    msg = "GPS location request timed out. Please retry.";
+                }
+                setGpsStatus({ type: "error", message: msg });
+                setGpsLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+
+    const handleLocationSelected = ({ latitude, longitude, placeName }) => {
+        setF(prev => ({
+            ...prev,
+            latitude,
+            longitude,
+            nodeName: prev.nodeName ? prev.nodeName : (placeName ? `${placeName} Solar Hub` : prev.nodeName)
+        }));
+        setGpsStatus({
+            type: "success",
+            message: `Coordinates updated: ${latitude}, ${longitude}${placeName ? ` (${placeName})` : ''}`
+        });
+    };
+
     async function saveF(e) {
         e.preventDefault();
         const b = { 
@@ -439,6 +971,7 @@ function Stations() {
             if (edit) await api.put(`/microgrid-nodes/${edit}`, b);
             else await api.post("/microgrid-nodes", b);
             setEdit(null);
+            setGpsStatus(null);
             setErr("");
             load();
         } catch (x) {
@@ -488,15 +1021,6 @@ function Stations() {
         }
     }
 
-    const formFieldsConfig = [
-        { key: "nodeCode", label: "Node Code", type: "text", disabled: !!edit, placeholder: "e.g. N-003" },
-        { key: "nodeName", label: "Branch / Station Name", type: "text", placeholder: "e.g. Colombo Central Solar Hub" },
-        { key: "latitude", label: "Latitude", type: "number", min: "-90", max: "90", step: "0.0001", placeholder: "e.g. 6.9271" },
-        { key: "longitude", label: "Longitude", type: "number", min: "-180", max: "180", step: "0.0001", placeholder: "e.g. 79.8612" },
-        { key: "capacityKw", label: "Capacity (kW)", type: "number", min: "0.1", step: "0.1", placeholder: "e.g. 150" },
-        { key: "batterySlotAvailability", label: "Battery Slot Availability", type: "number", min: "0", step: "1", placeholder: "e.g. 20" }
-    ];
-
     const filteredNodes = a.filter(x => {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
@@ -510,7 +1034,9 @@ function Stations() {
         );
     });
 
-    const inactiveMatches = search.trim() ? filteredNodes.filter(x => x.status !== 0 && x.status !== "Active") : [];
+    const inactiveMatches = search.trim() ? filteredNodes.filter(x => x.status !== 0) : [];
+
+    const hasCoords = f.latitude !== "" && f.longitude !== "" && !isNaN(+f.latitude) && !isNaN(+f.longitude);
 
     return <>
         <Title t="Microgrid Nodes" d="Register and manage solar grid hubs" />
@@ -518,27 +1044,159 @@ function Stations() {
             <form className="card" onSubmit={saveF}>
                 <h2>{edit ? "Update" : "Register"} Station</h2>
                 {err && <div className="err">{err}</div>}
-                {formFieldsConfig.map(({ key, label, type, min, max, step, placeholder, disabled }) => (
-                    <label key={key}>
-                        {label}
-                        <input
-                            required
-                            value={f[key] || ''}
-                            type={type}
-                            min={min}
-                            max={max}
-                            step={step}
-                            placeholder={placeholder}
-                            disabled={disabled}
-                            onChange={e => setF({ ...f, [key]: e.target.value })}
-                        />
-                    </label>
-                ))}
+                
+                <label>
+                    Node Code
+                    <input
+                        required
+                        disabled={!!edit}
+                        value={f.nodeCode || ''}
+                        type="text"
+                        placeholder="e.g. N-003"
+                        onChange={e => setF({ ...f, nodeCode: e.target.value })}
+                    />
+                </label>
+
+                <label>
+                    Branch / Station Name
+                    <input
+                        required
+                        value={f.nodeName || ''}
+                        type="text"
+                        placeholder="e.g. Colombo Central Solar Hub"
+                        onChange={e => setF({ ...f, nodeName: e.target.value })}
+                    />
+                </label>
+
+                {/* GPS Location Section */}
+                <div className="gps-section">
+                    <div className="gps-section-header">
+                        <span className="gps-section-title">
+                            <Crosshair size={16} /> Location Coordinates
+                        </span>
+                        <div className="gps-actions-row">
+                            <button
+                                type="button"
+                                className="gps-btn map-pick-btn"
+                                onClick={() => setIsMapModalOpen(true)}
+                                title="Open interactive map to search any location or click to pick coordinates"
+                            >
+                                <Map size={14} /> Map Picker & Search
+                            </button>
+                            <button
+                                type="button"
+                                className="gps-btn"
+                                disabled={gpsLoading}
+                                onClick={getCurrentGpsLocation}
+                                title="Auto-detect current device GPS location"
+                            >
+                                {gpsLoading ? (
+                                    <>
+                                        <Loader2 size={14} className="spin-icon" /> Locating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Navigation size={14} /> My GPS
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {gpsStatus && (
+                        <div className={`gps-status-box ${gpsStatus.type}`}>
+                            {gpsStatus.type === "success" ? (
+                                <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+                            ) : (
+                                <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                            )}
+                            <span>{gpsStatus.message}</span>
+                        </div>
+                    )}
+
+                    <div className="gps-coords-grid">
+                        <label>
+                            Latitude
+                            <input
+                                required
+                                value={f.latitude !== undefined ? f.latitude : ''}
+                                type="number"
+                                min="-90"
+                                max="90"
+                                step="0.000001"
+                                placeholder="e.g. 6.927100"
+                                onChange={e => setF({ ...f, latitude: e.target.value })}
+                            />
+                        </label>
+                        <label>
+                            Longitude
+                            <input
+                                required
+                                value={f.longitude !== undefined ? f.longitude : ''}
+                                type="number"
+                                min="-180"
+                                max="180"
+                                step="0.000001"
+                                placeholder="e.g. 79.861200"
+                                onChange={e => setF({ ...f, longitude: e.target.value })}
+                            />
+                        </label>
+                    </div>
+
+                    {hasCoords && (
+                        <div className="gps-preview-bar">
+                            <a
+                                href={`https://www.google.com/maps?q=${f.latitude},${f.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="gps-map-link"
+                            >
+                                <ExternalLink size={13} /> View on Google Maps ({f.latitude}, {f.longitude})
+                            </a>
+                        </div>
+                    )}
+                </div>
+
+                <label>
+                    Capacity (kW)
+                    <input
+                        required
+                        value={f.capacityKw || ''}
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        placeholder="e.g. 150"
+                        onChange={e => setF({ ...f, capacityKw: e.target.value })}
+                    />
+                </label>
+
+                <label>
+                    Battery Slot Availability
+                    <input
+                        required
+                        value={f.batterySlotAvailability !== undefined ? f.batterySlotAvailability : ''}
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="e.g. 20"
+                        onChange={e => setF({ ...f, batterySlotAvailability: e.target.value })}
+                    />
+                </label>
+
                 <div className="form-actions">
                     <button type="submit" style={{flex:1}}> {edit ? "Update" : "Create Node"} </button>
-                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
+                    {edit && <button type="button" onClick={() => { setEdit(null); setF(empty(a)); setGpsStatus(null); setErr(""); }} style={{background:"#94a3b8",flex:1}}>Cancel</button>}
                 </div>
             </form>
+
+            <LocationPickerModal
+                isOpen={isMapModalOpen}
+                onClose={() => setIsMapModalOpen(false)}
+                initialLat={f.latitude}
+                initialLng={f.longitude}
+                initialName={f.nodeName}
+                onSelectLocation={handleLocationSelected}
+            />
 
             <Table>
                 <div className="table-header">
@@ -580,7 +1238,7 @@ function Stations() {
                         <tr>
                             <th>Code</th>
                             <th>Name</th>
-                            <th>GPS</th>
+                            <th>GPS Coordinates</th>
                             <th>Capacity</th>
                             <th>Battery</th>
                             <th>Status</th>
@@ -593,7 +1251,19 @@ function Stations() {
                             <tr key={x.id}>
                                 <td><strong>{x.nodeCode}</strong></td>
                                 <td>{x.nodeName}</td>
-                                <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>{x.latitude}, {x.longitude}</td>
+                                <td>
+                                    <a
+                                        href={`https://www.google.com/maps?q=${x.latitude},${x.longitude}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="table-gps-link"
+                                        title="Click to view location in Google Maps"
+                                    >
+                                        <MapPin size={13} className="gps-pin-icon" />
+                                        <span>{x.latitude}, {x.longitude}</span>
+                                        <ExternalLink size={11} className="gps-ext-icon" />
+                                    </a>
+                                </td>
                                 <td>{x.capacityKw} kW</td>
                                 <td>{x.batterySlotAvailability}</td>
                                 <td>
@@ -613,8 +1283,8 @@ function Stations() {
                                 </td>
                                 <td>
                                     <div className="table-actions-cell" style={{ justifyContent: "flex-end" }}>
-                                        <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); }}>Edit</button>
-                                        {x.status === 0 || x.status === "Active" ? (
+                                        <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); setGpsStatus(null); }}>Edit</button>
+                                        {x.status === 0 ? (
                                             <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
                                         ) : (
                                             <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
