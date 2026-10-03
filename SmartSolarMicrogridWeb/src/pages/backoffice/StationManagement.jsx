@@ -877,9 +877,9 @@ export default function Stations() {
                                     </span>
                                 </td>
                                 <td>
-                                    {x.status !== 0 && x.status !== "Active" ? (
-                                        <span className="reason-pill" title={`Admin Reason: ${x.adminNote || x.deactivationReason || "Routine Maintenance"}`}>
-                                            <AlertTriangle size={12} style={{ flexShrink: 0 }}/>
+                                    {x.adminNote || x.deactivationReason || (x.status !== 0 && x.status !== "Active") ? (
+                                        <span className="reason-pill" style={x.status === 0 || x.status === "Active" ? { background: "var(--input-bg)", color: "var(--text-muted)", borderColor: "var(--border-color)" } : {}} title={`Admin Note: ${x.adminNote || x.deactivationReason || "Routine Maintenance"}`}>
+                                            {x.status !== 0 && x.status !== "Active" && <AlertTriangle size={12} style={{ flexShrink: 0 }}/>}
                                             <span>{x.adminNote || x.deactivationReason || "Routine Maintenance"}</span>
                                         </span>
                                     ) : (
@@ -889,7 +889,7 @@ export default function Stations() {
                                 <td>
                                     <div className="table-actions-cell" style={{ justifyContent: "flex-end" }}>
                                         <button className="btn-edit" onClick={() => { setEdit(x.id); setF(x); setGpsStatus(null); }}>Edit</button>
-                                        {x.status === 0 ? (
+                                        {x.status === 0 || x.status === "Active" ? (
                                             <button className="btn-delete" onClick={() => openDeactivateModal(x)}>Deactivate</button>
                                         ) : (
                                             <button className="btn-success" onClick={() => activate(x.id)}>Activate</button>
