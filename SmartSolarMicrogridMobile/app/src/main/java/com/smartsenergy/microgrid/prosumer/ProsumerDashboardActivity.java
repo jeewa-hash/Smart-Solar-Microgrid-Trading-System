@@ -1,6 +1,6 @@
 package com.smartsenergy.microgrid.prosumer;
 
-import android.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
@@ -48,31 +48,23 @@ public class ProsumerDashboardActivity extends BaseActivity {
 
         tvUsername.setText(session.username() + " · " + session.nic());
 
-        MaterialButton btnLogout = findViewById(R.id.btnLogout);
+        android.view.View btnLogout = findViewById(R.id.btnLogout);
         btnLogout.setOnClickListener(v -> doLogout());
 
-        buildActions();
+        // Map real features to new UI grid and scroll cards
+        findViewById(R.id.btnBookSlot).setOnClickListener(v -> startActivity(new Intent(this, BookSlotActivity.class)));
+        findViewById(R.id.btnMyBookings).setOnClickListener(v -> startActivity(new Intent(this, BookingsActivity.class)));
+        findViewById(R.id.btnGridMap).setOnClickListener(v -> startActivity(new Intent(this, com.smartsolar.microgrid.ui.MapActivity.class)));
+        findViewById(R.id.btnMyProfile).setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
+        findViewById(R.id.btnQrCode).setOnClickListener(v -> filterBookings());
+        // btnDeactivate removed from dashboard layout
+
+        setupBottomNav(R.id.nav_home);
         loadDashboard();
     }
 
-    private void buildActions() {
-        contentLayout.removeAllViews();
-        addActionCard(contentLayout, "Book Energy Slot",
-                android.R.drawable.ic_menu_add, v -> book());
-        addActionCard(contentLayout, "My Bookings & Search",
-                android.R.drawable.ic_menu_agenda, v -> filterBookings());
-        addActionCard(contentLayout, "Booking History",
-                android.R.drawable.ic_menu_recent_history, v -> loadBookings("", "Completed"));
-        addActionCard(contentLayout, "Nearby Grid Nodes on Map",
-                android.R.drawable.ic_menu_mapmode, v ->
-                        startActivity(new Intent(this, com.smartsolar.microgrid.ui.MapActivity.class)));
-        addActionCard(contentLayout, "My Profile",
-                android.R.drawable.ic_menu_my_calendar, v -> profile());
-        addActionCard(contentLayout, "View / Generate QR Code",
-                android.R.drawable.ic_menu_share, v -> filterBookings());
-        addActionCard(contentLayout, "Request Account Deactivation",
-                android.R.drawable.ic_delete, v -> deactivate());
-    }
+    // Build actions logic replaced by direct XML mapping.
+
 
     private void loadDashboard() {
         showLoading();
@@ -113,7 +105,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
                             + "  ⏱ " + ApiUtils.str(s, "startTime") + "–" + ApiUtils.str(s, "endTime")
                             + "  ⚡ " + fmt(ApiUtils.num(s, "availableCapacityKwh")) + " kWh";
                 }
-                new AlertDialog.Builder(ProsumerDashboardActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerDashboardActivity.this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                         .setTitle("Available Energy Slots")
                         .setItems(labels, (d, w) -> energyDialog(a.get(w).getAsJsonObject()))
                         .show();
@@ -127,14 +119,26 @@ public class ProsumerDashboardActivity extends BaseActivity {
         EditText et = new EditText(this);
         et.setHint("Energy amount (kWh)");
         et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        et.setTextSize(14f);
+        et.setPadding(40, 36, 40, 36);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+        bg.setCornerRadius(24f);
+        bg.setStroke(2, android.graphics.Color.parseColor("#E0E0E0"));
+        et.setBackground(bg);
+        
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(64, 24, 64, 0);
+        box.addView(et);
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle("Reserve Slot")
                 .setMessage("📅 " + shortDate(ApiUtils.str(slot, "slotDate"))
                         + "\n⏱ " + ApiUtils.str(slot, "startTime")
                         + " – " + ApiUtils.str(slot, "endTime")
-                        + "\n⚡ Available: " + fmt(ApiUtils.num(slot, "availableCapacityKwh")) + " kWh")
-                .setView(et)
+                        + "\n⚡ Available: " + fmt(ApiUtils.num(slot, "availableCapacityKwh")) + " kWh\n")
+                .setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Confirm", (d, w) ->
                         createReservation(ApiUtils.str(slot, "id"), et.getText().toString()))
@@ -165,27 +169,26 @@ public class ProsumerDashboardActivity extends BaseActivity {
 
     // ── Filter / search bookings ───────────────────────────
     private void filterBookings() {
-        EditText search = new EditText(this);
-        search.setHint("Search code or node ID (optional)");
-        Spinner spinner = new Spinner(this);
-        String[] opts = {"All", "Pending", "Approved", "Cancelled", "Completed"};
-        spinner.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, opts));
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(32, 16, 32, 0);
-        box.addView(search);
-        box.addView(spinner);
+        android.view.View view = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_search_bookings, null);
 
-        new AlertDialog.Builder(this)
-                .setTitle("Search & Filter Bookings")
-                .setView(box)
-                .setNegativeButton("Close", null)
-                .setPositiveButton("Search", (d, w) -> {
-                    String st = spinner.getSelectedItem().toString();
-                    loadBookings(search.getText().toString().trim(),
-                            "All".equals(st) ? "" : st);
-                }).show();
+        com.google.android.material.textfield.TextInputEditText etSearch = view.findViewById(R.id.etSearch);
+        android.widget.Spinner spStatus = view.findViewById(R.id.spStatus);
+
+        String[] opts = {"All", "Pending", "Approved", "Cancelled", "Completed"};
+        spStatus.setAdapter(new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, opts));
+
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setView(view)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .show();
+
+        view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
+        view.findViewById(R.id.btnSave).setOnClickListener(v -> {
+            String st = spStatus.getSelectedItem().toString();
+            loadBookings(etSearch.getText().toString().trim(),
+                    "All".equals(st) ? "" : st);
+            dialog.dismiss();
+        });
     }
 
     private void loadBookings(String searchText, String statusFilter) {
@@ -206,11 +209,13 @@ public class ProsumerDashboardActivity extends BaseActivity {
                                     + " " + ApiUtils.str(x, "reservationCode")
                                     + "  ·  " + shortDate(ApiUtils.str(x, "reservationDate"));
                         }
-                        new AlertDialog.Builder(ProsumerDashboardActivity.this)
+                        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerDashboardActivity.this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                                 .setTitle("My Bookings")
                                 .setItems(labels, (d, w) ->
                                         bookingActions(a.get(w).getAsJsonObject()))
-                                .show();
+                                .create();
+                        dialog.getWindow().setBackgroundDrawableResource(R.drawable.bg_dialog);
+                        dialog.show();
                     }
                     @Override
                     public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
@@ -219,47 +224,77 @@ public class ProsumerDashboardActivity extends BaseActivity {
 
     private void bookingActions(JsonObject r) {
         String status = ApiUtils.str(r, "status");
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
-                .setTitle(ApiUtils.str(r, "reservationCode")
-                        + "  " + statusIcon(status) + " " + status)
-                .setMessage("📅 " + shortDate(ApiUtils.str(r, "reservationDate"))
-                        + "\n⏱ " + ApiUtils.str(r, "startTime")
-                        + " – " + ApiUtils.str(r, "endTime")
-                        + "\n⚡ " + fmt(ApiUtils.num(r, "energyAmountKwh")) + " kWh");
+        android.view.View view = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_booking_actions, null);
 
-        if ("Approved".equalsIgnoreCase(status))
-            b.setNeutralButton("Get QR", (d, w) -> generateQr(ApiUtils.str(r, "id")));
-        if ("Pending".equalsIgnoreCase(status) || "Approved".equalsIgnoreCase(status)) {
-            b.setPositiveButton("Modify", (d, w) -> modifyDialog(r));
-            b.setNegativeButton("Cancel Booking", (d, w) -> confirmCancel(ApiUtils.str(r, "id")));
-        } else {
-            b.setPositiveButton("Close", null);
+        TextView tvResCode = view.findViewById(R.id.tvResCode);
+        tvResCode.setText(ApiUtils.str(r, "reservationCode"));
+
+        TextView tvStatus = view.findViewById(R.id.tvStatus);
+        tvStatus.setText(statusIcon(status) + " " + status);
+        if ("Pending".equals(status)) {
+            tvStatus.setTextColor(android.graphics.Color.parseColor("#FFA000"));
+        } else if ("Approved".equals(status)) {
+            tvStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"));
+        } else if ("Cancelled".equals(status)) {
+            tvStatus.setTextColor(android.graphics.Color.parseColor("#D32F2F"));
         }
-        b.show();
+
+        TextView tvDate = view.findViewById(R.id.tvDate);
+        tvDate.setText("📅 " + shortDate(ApiUtils.str(r, "reservationDate")));
+
+        TextView tvTime = view.findViewById(R.id.tvTime);
+        tvTime.setText("⏱ " + ApiUtils.str(r, "startTime") + " – " + ApiUtils.str(r, "endTime"));
+
+        TextView tvEnergy = view.findViewById(R.id.tvEnergy);
+        tvEnergy.setText("⚡ " + fmt(ApiUtils.num(r, "energyAmountKwh")) + " kWh");
+
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setView(view)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .show();
+
+        com.google.android.material.button.MaterialButton btnGetQr = view.findViewById(R.id.btnGetQr);
+        com.google.android.material.button.MaterialButton btnCancel = view.findViewById(R.id.btnCancel);
+        com.google.android.material.button.MaterialButton btnModify = view.findViewById(R.id.btnModify);
+        com.google.android.material.button.MaterialButton btnClose = view.findViewById(R.id.btnClose);
+
+        if ("Approved".equalsIgnoreCase(status)) {
+            btnGetQr.setVisibility(android.view.View.VISIBLE);
+            btnGetQr.setOnClickListener(v -> { generateQr(ApiUtils.str(r, "id")); dialog.dismiss(); });
+        }
+        
+        if ("Pending".equalsIgnoreCase(status) || "Approved".equalsIgnoreCase(status)) {
+            btnModify.setVisibility(android.view.View.VISIBLE);
+            btnModify.setOnClickListener(v -> { modifyDialog(r); dialog.dismiss(); });
+            
+            btnCancel.setVisibility(android.view.View.VISIBLE);
+            btnCancel.setOnClickListener(v -> { confirmCancel(ApiUtils.str(r, "id")); dialog.dismiss(); });
+        } else {
+            btnClose.setVisibility(android.view.View.VISIBLE);
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
     }
 
     private void modifyDialog(JsonObject old) {
-        EditText etSlot = new EditText(this); etSlot.setHint("New Slot ID");
-        EditText etAmt  = new EditText(this); etAmt.setHint("New Energy Amount (kWh)");
-        etAmt.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(32, 16, 32, 0);
-        box.addView(etSlot); box.addView(etAmt);
+        android.view.View view = android.view.LayoutInflater.from(this).inflate(R.layout.dialog_modify_reservation, null);
+        com.google.android.material.textfield.TextInputEditText etSlotId = view.findViewById(R.id.etSlotId);
+        com.google.android.material.textfield.TextInputEditText etEnergyAmount = view.findViewById(R.id.etEnergyAmount);
 
-        new AlertDialog.Builder(this)
-                .setTitle("Modify Reservation")
-                .setMessage("Note: Modification requires at least 12 hours notice.")
-                .setView(box)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Update", (d, w) -> {
-                    try {
-                        JsonObject j = new JsonObject();
-                        j.addProperty("energySlotId", etSlot.getText().toString().trim());
-                        j.addProperty("energyAmountKwh", Double.parseDouble(etAmt.getText().toString()));
-                        updateReservation(ApiUtils.str(old, "id"), j);
-                    } catch (Exception e) { toast("Enter valid values"); }
-                }).show();
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setView(view)
+                .setBackground(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                .show();
+
+        view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
+        view.findViewById(R.id.btnSave).setOnClickListener(v -> {
+            try {
+                JsonObject j = new JsonObject();
+                j.addProperty("energySlotId", etSlotId.getText().toString().trim());
+                j.addProperty("energyAmountKwh", Double.parseDouble(etEnergyAmount.getText().toString()));
+                updateReservation(ApiUtils.str(old, "id"), j);
+                dialog.dismiss();
+            } catch (Exception e) { toast("Enter valid values"); }
+        });
     }
 
     private void updateReservation(String id, JsonObject body) {
@@ -277,7 +312,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
     }
 
     private void confirmCancel(String id) {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle("Cancel Booking?")
                 .setMessage("Cancellation requires at least 12 hours notice.")
                 .setNegativeButton("No", null)
@@ -328,7 +363,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
             img.setImageBitmap(bmp);
         } catch (Exception e) { toast("QR generation error"); return; }
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle("Transaction QR Code")
                 .setMessage("📋 " + ApiUtils.str(q, "transactionCode")
                         + "\n\nShow this QR to the Grid Operator at the charging station.")
@@ -363,7 +398,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
                 addLabeled(box, "Phone", etPhone);
                 addLabeled(box, "Address", etAddr);
 
-                new AlertDialog.Builder(ProsumerDashboardActivity.this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ProsumerDashboardActivity.this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                         .setTitle("My Profile  ·  NIC: " + session.nic())
                         .setView(box)
                         .setNegativeButton("Close", null)
@@ -397,7 +432,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
 
     // ── Deactivation ───────────────────────────────────────
     private void deactivate() {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle("Request Account Deactivation")
                 .setMessage("This will send a deactivation request to Backoffice for review.")
                 .setNegativeButton("Cancel", null)
@@ -421,7 +456,7 @@ public class ProsumerDashboardActivity extends BaseActivity {
 
     // ── UI utility helpers ─────────────────────────────────
     private void showSummary(String title, JsonObject r) {
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle(title)
                 .setMessage("📋 " + ApiUtils.str(r, "reservationCode")
                         + "\n🔖 Status: " + ApiUtils.str(r, "status")
@@ -434,6 +469,13 @@ public class ProsumerDashboardActivity extends BaseActivity {
     private EditText makeField(String value) {
         EditText et = new EditText(this);
         et.setText(value);
+        et.setTextSize(14f);
+        et.setPadding(40, 36, 40, 36);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+        bg.setCornerRadius(24f);
+        bg.setStroke(2, android.graphics.Color.parseColor("#E0E0E0"));
+        et.setBackground(bg);
         return et;
     }
 

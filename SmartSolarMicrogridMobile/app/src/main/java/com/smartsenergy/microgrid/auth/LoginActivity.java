@@ -1,6 +1,6 @@
 package com.smartsenergy.microgrid.auth;
 
-import android.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.EditText;
@@ -63,9 +63,9 @@ public class LoginActivity extends BaseActivity {
         input.setText(session.getBaseUrl());
         input.setSelection(input.getText().length());
 
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Configure Server URL")
-                .setMessage("Emulator default: http://10.0.2.2:5000/api/\nPhysical device: http://<PC-LAN-IP>:5000/api/")
+                .setMessage("Emulator default: http://10.0.2.2:5053/api/\nPhysical device: http://<PC-LAN-IP>:5053/api/")
                 .setView(input)
                 .setPositiveButton("Save", (dialog, which) -> {
                     String newUrl = input.getText().toString().trim();
@@ -78,7 +78,7 @@ public class LoginActivity extends BaseActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .setNeutralButton("Reset Default", (dialog, which) -> {
-                    session.setBaseUrl("http://10.0.2.2:5000/api/");
+                    session.setBaseUrl("http://10.0.2.2:5053/api/");
                     ApiClient.reset();
                     updateServerSettingsLabel();
                     toast("Reset to default URL: " + session.getBaseUrl());

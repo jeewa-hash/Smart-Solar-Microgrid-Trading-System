@@ -33,4 +33,5 @@ public interface ApiService {
     @GET("energy-slots") Call<JsonElement> operatorSlots(@Query("nodeId") String nodeId, @Query("availableOnly") boolean availableOnly);
     @PUT("energy-slots/{id}/availability") Call<JsonObject> updateAvailability(@Path("id") String id, @Query("availableCapacityKwh") double capacity);
     @GET("reservations/status/{status}") Call<JsonElement> reservationsByStatus(@Path("status") String status);
+    @GET("reservations/all") Call<JsonElement> allReservations();
 }

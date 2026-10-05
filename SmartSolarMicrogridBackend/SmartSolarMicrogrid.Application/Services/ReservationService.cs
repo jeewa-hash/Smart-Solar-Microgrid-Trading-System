@@ -24,14 +24,51 @@ public class ReservationService : IReservationService {
         await _res.InsertAsync(r);await _slots.ReplaceAsync(s.Id,s);return r;
     }
     public Task<EnergyReservation?> GetAsync(string id)=>_res.GetByIdAsync(id);
-    public async Task<IReadOnlyList<EnergyReservation>> GetMineAsync(string nic,string? search=null,string? status=null){
-        var p=(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
+    public async Task<IReadOnlyList<ReservationResponseDto>> GetMineAsync(string nic,string? search=null,string? status=null){
+        var pros = await _pros.GetAllAsync();
+        var p=pros.FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
         var x=(await _res.GetAllAsync()).Where(r=>r.ProsumerId==p.Id);
         if(!string.IsNullOrWhiteSpace(search))x=x.Where(r=>r.ReservationCode.Contains(search,StringComparison.OrdinalIgnoreCase)||r.NodeId.Contains(search,StringComparison.OrdinalIgnoreCase));
         if(!string.IsNullOrWhiteSpace(status)&&Enum.TryParse<ReservationStatus>(status,true,out var st))x=x.Where(r=>r.Status==st);
-        return x.OrderByDescending(r=>r.ReservationDate).ToList();
+        
+        var nodes = await _nodes.GetAllAsync();
+        
+        return x.OrderByDescending(r=>r.ReservationDate).Select(r=>new ReservationResponseDto {
+            Id = r.Id, ReservationCode = r.ReservationCode, ProsumerId = r.ProsumerId, 
+            ProsumerName = p.FullName, NodeId = r.NodeId, 
+            NodeName = nodes.FirstOrDefault(n => n.Id == r.NodeId)?.NodeName,
+            EnergySlotId = r.EnergySlotId, ReservationDate = r.ReservationDate,
+            StartTime = r.StartTime, EndTime = r.EndTime, EnergyAmountKwh = r.EnergyAmountKwh,
+            Status = r.Status, CreatedAt = r.CreatedAt
+        }).ToList();
     }
-    public async Task<IReadOnlyList<EnergyReservation>> GetByStatusAsync(string status){if(!Enum.TryParse<ReservationStatus>(status,true,out var st))throw new ArgumentException("Invalid status.");return (await _res.GetAllAsync()).Where(r=>r.Status==st).OrderBy(r=>r.ReservationDate).ToList();}
+    public async Task<IReadOnlyList<ReservationResponseDto>> GetByStatusAsync(string status){
+        if(!Enum.TryParse<ReservationStatus>(status,true,out var st))throw new ArgumentException("Invalid status.");
+        var res = (await _res.GetAllAsync()).Where(r=>r.Status==st).OrderBy(r=>r.ReservationDate).ToList();
+        var pros = await _pros.GetAllAsync();
+        var nodes = await _nodes.GetAllAsync();
+        return res.Select(r => new ReservationResponseDto {
+            Id = r.Id, ReservationCode = r.ReservationCode, ProsumerId = r.ProsumerId,
+            ProsumerName = pros.FirstOrDefault(p => p.Id == r.ProsumerId)?.FullName,
+            NodeId = r.NodeId, NodeName = nodes.FirstOrDefault(n => n.Id == r.NodeId)?.NodeName,
+            EnergySlotId = r.EnergySlotId, ReservationDate = r.ReservationDate,
+            StartTime = r.StartTime, EndTime = r.EndTime, EnergyAmountKwh = r.EnergyAmountKwh,
+            Status = r.Status, CreatedAt = r.CreatedAt
+        }).ToList();
+    }
+    public async Task<IReadOnlyList<ReservationResponseDto>> GetAllAsync(){
+        var res = (await _res.GetAllAsync()).OrderByDescending(r=>r.ReservationDate).ToList();
+        var pros = await _pros.GetAllAsync();
+        var nodes = await _nodes.GetAllAsync();
+        return res.Select(r => new ReservationResponseDto {
+            Id = r.Id, ReservationCode = r.ReservationCode, ProsumerId = r.ProsumerId,
+            ProsumerName = pros.FirstOrDefault(p => p.Id == r.ProsumerId)?.FullName,
+            NodeId = r.NodeId, NodeName = nodes.FirstOrDefault(n => n.Id == r.NodeId)?.NodeName,
+            EnergySlotId = r.EnergySlotId, ReservationDate = r.ReservationDate,
+            StartTime = r.StartTime, EndTime = r.EndTime, EnergyAmountKwh = r.EnergyAmountKwh,
+            Status = r.Status, CreatedAt = r.CreatedAt
+        }).ToList();
+    }
     public async Task<EnergyReservation> UpdateAsync(string nic,string id,UpdateReservationDto d){
         var r=await _res.GetByIdAsync(id)??throw new KeyNotFoundException("Reservation not found.");
         var p=(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
