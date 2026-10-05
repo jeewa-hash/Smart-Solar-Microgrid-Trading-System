@@ -1,3 +1,8 @@
+/*
+ * File: Program.cs
+ * Description: Smart Solar Microgrid Trading System - Program.cs module
+ * Author: Admin
+ */
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.

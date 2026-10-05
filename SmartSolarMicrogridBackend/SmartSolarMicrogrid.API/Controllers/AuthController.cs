@@ -1,3 +1,8 @@
+/*
+ * File: AuthController.cs
+ * Description: Smart Solar Microgrid Trading System - AuthController.cs module
+ * Author: Admin
+ */
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSolarMicrogrid.Application.DTOs.Auth;

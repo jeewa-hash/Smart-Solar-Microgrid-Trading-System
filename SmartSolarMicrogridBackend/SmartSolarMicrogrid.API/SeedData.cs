@@ -1,3 +1,8 @@
+/*
+ * File: SeedData.cs
+ * Description: Smart Solar Microgrid Trading System - SeedData.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Entities;
 using SmartSolarMicrogrid.Domain.Enums;
 using SmartSolarMicrogrid.Infrastructure.MongoDB.Repositories;
@@ -7,6 +12,7 @@ namespace SmartSolarMicrogrid.API;
 
 public static class SeedData
 {
+    // Method: RunAsync - executes the relevant logic
     public static async Task RunAsync(IServiceProvider sp)
     {
         using var scope = sp.CreateScope();
@@ -17,6 +23,7 @@ public static class SeedData
 
         var list = await users.GetAllAsync();
 
+        // Method: AddUser - executes the relevant logic
         async Task<User> AddUser(string username, string password, UserRole role, UserStatus status = UserStatus.Active)
         {
             var existing = list.FirstOrDefault(x => x.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
@@ -36,7 +43,9 @@ public static class SeedData
             return user;
         }
 
+        // Method: AddUser - executes the relevant logic
         await AddUser("admin", "Admin@123", UserRole.Backoffice);
+        // Method: AddUser - executes the relevant logic
         await AddUser("operator1", "Operator@123", UserRole.GridOperator);
 
         var prosumerUser = await AddUser("prosumer1", "Prosumer@123", UserRole.Prosumer, UserStatus.Active);

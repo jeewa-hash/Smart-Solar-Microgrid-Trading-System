@@ -1,3 +1,8 @@
+/*
+ * File: CreateUserDto.cs
+ * Description: Smart Solar Microgrid Trading System - CreateUserDto.cs module
+ * Author: Admin
+ */
 using System.ComponentModel.DataAnnotations;
 using SmartSolarMicrogrid.Domain.Enums;
 

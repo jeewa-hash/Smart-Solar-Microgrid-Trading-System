@@ -1,3 +1,8 @@
+/*
+ * File: DrpVerificationService.cs
+ * Description: Smart Solar Microgrid Trading System - DrpVerificationService.cs module
+ * Author: Admin
+ */
 using Microsoft.Extensions.Configuration;
 using SmartSolarMicrogrid.Application.Interfaces;
 using System.Text.RegularExpressions;
@@ -8,10 +13,13 @@ namespace SmartSolarMicrogrid.Application.Services;
 public class DrpVerificationService : IDrpVerificationService {
     private readonly IConfiguration _config;
     
+    // Method: DrpVerificationService - executes the relevant logic
+    // Method: DrpVerificationService (Constructor) - initializes the instance
     public DrpVerificationService(IConfiguration config) {
         _config = config;
     }
 
+    // Method: VerifyNicAsync - executes the relevant logic
     public async Task<DrpVerificationResult> VerifyNicAsync(string nic, string fullName) {
         bool useLiveApi = _config.GetValue<bool>("DrpVerification:UseLiveDrpApi", true);
         string baseUrl = _config.GetValue<string>("DrpVerification:DrpEndpoint", "https://induwara.lk/api/v1/nic/")!;
@@ -38,14 +46,18 @@ public class DrpVerificationService : IDrpVerificationService {
                             Message: "NIC Verified Successfully against 3rd Party API."
                         );
                     }
+                    // Method: DrpVerificationResult - executes the relevant logic
                     return new DrpVerificationResult(false, "", null, null, null, null, "API Verification Failed: Invalid NIC details.");
                 } else {
+                    // Method: DrpVerificationResult - executes the relevant logic
                     return new DrpVerificationResult(false, "", null, null, null, null, $"Real API Error: {response.StatusCode} - Invalid NIC or API limit reached.");
                 }
             } catch (Exception) {
+                // Method: SimulateDrpVerification - executes the relevant logic
                 return SimulateDrpVerification(nic, fullName); // Fallback to avoid crashing presentation
             }
         } else {
+            // Method: SimulateDrpVerification - executes the relevant logic
             return SimulateDrpVerification(nic, fullName);
         }
     }
@@ -64,24 +76,29 @@ public class DrpVerificationService : IDrpVerificationService {
         public int Years { get; set; }
     }
 
+    // Method: SimulateDrpVerification - executes the relevant logic
     private DrpVerificationResult SimulateDrpVerification(string nic, string fullName) {
         if (string.IsNullOrWhiteSpace(nic)) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "NIC is required.");
         }
 
         nic = nic.Trim().ToUpper();
 
         if (nic.Length != 10 && nic.Length != 12) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "Invalid NIC length. Must be 10 or 12 characters.");
         }
 
         bool isOldFormat = nic.Length == 10;
 
         if (isOldFormat && !Regex.IsMatch(nic, @"^[0-9]{9}[VX]$")) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "Old NIC must contain 9 digits followed by V or X.");
         }
         
         if (!isOldFormat && !Regex.IsMatch(nic, @"^[0-9]{12}$")) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "New NIC must contain exactly 12 digits.");
         }
 
@@ -98,6 +115,7 @@ public class DrpVerificationService : IDrpVerificationService {
 
         int currentYear = DateTime.UtcNow.Year;
         if (birthYear < 1900 || birthYear > currentYear) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, $"Invalid birth year ({birthYear}) in NIC.");
         }
 
@@ -105,6 +123,7 @@ public class DrpVerificationService : IDrpVerificationService {
         int minAge = _config.GetValue<int>("DrpVerification:MinimumCitizenAge", 16);
 
         if (age < minAge) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, $"Citizen must be at least {minAge} years old. Computed age: {age}.");
         }
 
@@ -112,6 +131,7 @@ public class DrpVerificationService : IDrpVerificationService {
         bool isFemale = dayValue >= 501 && dayValue <= 866;
 
         if (!isMale && !isFemale) {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "Invalid day of year in NIC. Check digit encoding.");
         }
 
@@ -125,6 +145,7 @@ public class DrpVerificationService : IDrpVerificationService {
             // but DRP standard typically uses standard calendar logic.
             dateOfBirth = new DateTime(birthYear, 1, 1).AddDays(dayOfYear - 1);
         } catch {
+            // Method: DrpVerificationResult - executes the relevant logic
             return new DrpVerificationResult(false, "", null, null, null, null, "Failed to compute valid date of birth from NIC.");
         }
 

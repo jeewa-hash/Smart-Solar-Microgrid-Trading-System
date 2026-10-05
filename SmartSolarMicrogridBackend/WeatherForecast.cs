@@ -1,3 +1,8 @@
+/*
+ * File: WeatherForecast.cs
+ * Description: Smart Solar Microgrid Trading System - WeatherForecast.cs module
+ * Author: Admin
+ */
 namespace SmartSolarMicrogridBackend;
 
 public class WeatherForecast

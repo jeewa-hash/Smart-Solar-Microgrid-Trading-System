@@ -1,8 +1,16 @@
+/*
+ * File: ExceptionMiddleware.cs
+ * Description: Smart Solar Microgrid Trading System - ExceptionMiddleware.cs module
+ * Author: Admin
+ */
 using System.Text.Json;
 namespace SmartSolarMicrogrid.API.Middleware;
 public class ExceptionMiddleware {
     private readonly RequestDelegate _next;
+    // Method: ExceptionMiddleware - executes the relevant logic
+    // Method: ExceptionMiddleware (Constructor) - initializes the instance
     public ExceptionMiddleware(RequestDelegate next)=>_next=next;
+    // Method: Invoke - executes the relevant logic
     public async Task Invoke(HttpContext context){
         try{await _next(context);}
         catch(Exception ex){

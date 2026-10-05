@@ -1,3 +1,8 @@
+/*
+ * File: ReservationService.cs
+ * Description: Smart Solar Microgrid Trading System - ReservationService.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Application.DTOs.Reservation;
 using SmartSolarMicrogrid.Application.Interfaces;
 using SmartSolarMicrogrid.Application.Validators;
@@ -7,7 +12,10 @@ using SmartSolarMicrogrid.Infrastructure.MongoDB.Repositories;
 namespace SmartSolarMicrogrid.Application.Services;
 public class ReservationService : IReservationService {
     private readonly EnergyReservationRepository _res; private readonly ProsumerRepository _pros; private readonly EnergySlotRepository _slots; private readonly MicrogridNodeRepository _nodes;
+    // Method: ReservationService - executes the relevant logic
+    // Method: ReservationService (Constructor) - initializes the instance
     public ReservationService(EnergyReservationRepository res,ProsumerRepository pros,EnergySlotRepository slots,MicrogridNodeRepository nodes){_res=res;_pros=pros;_slots=slots;_nodes=nodes;}
+    // Method: CreateAsync - executes the relevant logic
     public async Task<EnergyReservation> CreateAsync(string nic,CreateReservationDto d){
         var p=(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
         if(p.AccountStatus!=UserStatus.Active)throw new UnauthorizedAccessException("Prosumer account is not active.");
@@ -23,7 +31,9 @@ public class ReservationService : IReservationService {
         s.AvailableCapacityKwh-=d.EnergyAmountKwh;s.Status=SlotStatus.Reserved;s.UpdatedAt=DateTime.UtcNow;
         await _res.InsertAsync(r);await _slots.ReplaceAsync(s.Id,s);return r;
     }
+    // Method: GetAsync - executes the relevant logic
     public Task<EnergyReservation?> GetAsync(string id)=>_res.GetByIdAsync(id);
+    // Method: GetMineAsync - executes the relevant logic
     public async Task<IReadOnlyList<ReservationResponseDto>> GetMineAsync(string nic,string? search=null,string? status=null){
         var pros = await _pros.GetAllAsync();
         var p=pros.FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
@@ -42,6 +52,7 @@ public class ReservationService : IReservationService {
             Status = r.Status, CreatedAt = r.CreatedAt
         }).ToList();
     }
+    // Method: GetByStatusAsync - executes the relevant logic
     public async Task<IReadOnlyList<ReservationResponseDto>> GetByStatusAsync(string status){
         if(!Enum.TryParse<ReservationStatus>(status,true,out var st))throw new ArgumentException("Invalid status.");
         var res = (await _res.GetAllAsync()).Where(r=>r.Status==st).OrderBy(r=>r.ReservationDate).ToList();
@@ -56,6 +67,7 @@ public class ReservationService : IReservationService {
             Status = r.Status, CreatedAt = r.CreatedAt
         }).ToList();
     }
+    // Method: GetAllAsync - executes the relevant logic
     public async Task<IReadOnlyList<ReservationResponseDto>> GetAllAsync(){
         var res = (await _res.GetAllAsync()).OrderByDescending(r=>r.ReservationDate).ToList();
         var pros = await _pros.GetAllAsync();
@@ -69,6 +81,7 @@ public class ReservationService : IReservationService {
             Status = r.Status, CreatedAt = r.CreatedAt
         }).ToList();
     }
+    // Method: UpdateAsync - executes the relevant logic
     public async Task<EnergyReservation> UpdateAsync(string nic,string id,UpdateReservationDto d){
         var r=await _res.GetByIdAsync(id)??throw new KeyNotFoundException("Reservation not found.");
         var p=(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
@@ -81,6 +94,7 @@ public class ReservationService : IReservationService {
         r.EnergySlotId=s.Id;r.NodeId=s.NodeId;r.ReservationDate=s.SlotDate;r.StartTime=s.StartTime;r.EndTime=s.EndTime;r.EnergyAmountKwh=d.EnergyAmountKwh;r.Status=ReservationStatus.Pending;
         await _res.ReplaceAsync(id,r);return r;
     }
+    // Method: CancelAsync - executes the relevant logic
     public async Task<EnergyReservation> CancelAsync(string nic,string id){
         var r=await _res.GetByIdAsync(id)??throw new KeyNotFoundException("Reservation not found.");
         var p=(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase))??throw new KeyNotFoundException("Prosumer not found.");
@@ -90,10 +104,12 @@ public class ReservationService : IReservationService {
         r.Status=ReservationStatus.Cancelled;r.CancelledAt=DateTime.UtcNow;await _res.ReplaceAsync(id,r);
         var s=await _slots.GetByIdAsync(r.EnergySlotId);if(s is not null){s.Status=SlotStatus.Available;s.AvailableCapacityKwh+=r.EnergyAmountKwh;await _slots.ReplaceAsync(s.Id,s);}return r;
     }
+    // Method: ApproveAsync - executes the relevant logic
     public async Task<EnergyReservation> ApproveAsync(string id){
         var r=await _res.GetByIdAsync(id)??throw new KeyNotFoundException("Reservation not found.");
         if(r.Status!=ReservationStatus.Pending)throw new InvalidOperationException("Only pending reservations can be approved.");
         r.Status=ReservationStatus.Approved;r.ApprovedAt=DateTime.UtcNow;await _res.ReplaceAsync(id,r);return r;
     }
+    // Method: Combine - executes the relevant logic
     private static DateTime Combine(DateTime date,string time){return DateTime.TryParse($"{date:yyyy-MM-dd} {time}",out var x)?DateTime.SpecifyKind(x,DateTimeKind.Utc):date;}
 }

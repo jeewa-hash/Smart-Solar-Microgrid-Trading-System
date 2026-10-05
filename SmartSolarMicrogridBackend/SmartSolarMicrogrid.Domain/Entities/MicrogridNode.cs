@@ -1,3 +1,8 @@
+/*
+ * File: MicrogridNode.cs
+ * Description: Smart Solar Microgrid Trading System - MicrogridNode.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class MicrogridNode {

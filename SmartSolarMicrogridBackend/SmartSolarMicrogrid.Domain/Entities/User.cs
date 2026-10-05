@@ -1,3 +1,8 @@
+/*
+ * File: User.cs
+ * Description: Smart Solar Microgrid Trading System - User.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class User {

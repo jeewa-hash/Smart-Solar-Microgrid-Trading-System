@@ -1,3 +1,8 @@
+/*
+ * File: ProsumersController.cs
+ * Description: Smart Solar Microgrid Trading System - ProsumersController.cs module
+ * Author: Admin
+ */
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSolarMicrogrid.Application.DTOs.Prosumer;

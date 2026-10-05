@@ -1,3 +1,8 @@
+/*
+ * File: IDrpVerificationService.cs
+ * Description: Smart Solar Microgrid Trading System - IDrpVerificationService.cs module
+ * Author: Admin
+ */
 namespace SmartSolarMicrogrid.Application.Interfaces;
 
 public record DrpVerificationResult(
@@ -11,5 +16,6 @@ public record DrpVerificationResult(
 );
 
 public interface IDrpVerificationService {
+    // Method: VerifyNicAsync - executes the relevant logic
     Task<DrpVerificationResult> VerifyNicAsync(string nic, string fullName);
 }

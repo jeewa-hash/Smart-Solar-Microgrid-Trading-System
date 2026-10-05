@@ -1,7 +1,13 @@
+/*
+ * File: NicOcrService.cs
+ * Description: Smart Solar Microgrid Trading System - NicOcrService.cs module
+ * Author: Admin
+ */
 namespace SmartSolarMicrogrid.Application.Services;
 using SmartSolarMicrogrid.Application.Interfaces;
 
 public class NicOcrService : IOcrService {
+    // Method: ExtractNicFromImageAsync - executes the relevant logic
     public async Task<string?> ExtractNicFromImageAsync(string base64Image, string expectedNic) {
         if (string.IsNullOrWhiteSpace(base64Image)) return null;
 

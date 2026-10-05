@@ -1,3 +1,8 @@
+/*
+ * File: DashboardDtos.cs
+ * Description: Smart Solar Microgrid Trading System - DashboardDtos.cs module
+ * Author: Admin
+ */
 namespace SmartSolarMicrogrid.Application.DTOs.Dashboard;
 public record ProsumerDashboardDto(int ActiveReservations, int PendingReservations, int HistoryCount, object? UpcomingReservation, IReadOnlyList<object> NearbyNodes);
 public record OperatorDashboardDto(int PendingReservations, int ApprovedReservations, int TodayBookings, int AvailableSlots, IReadOnlyList<object> RecentTransactions);

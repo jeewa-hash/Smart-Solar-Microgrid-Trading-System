@@ -1,3 +1,8 @@
+/*
+ * File: ReservationsController.cs
+ * Description: Smart Solar Microgrid Trading System - ReservationsController.cs module
+ * Author: Admin
+ */
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

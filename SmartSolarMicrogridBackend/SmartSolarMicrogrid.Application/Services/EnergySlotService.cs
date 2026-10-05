@@ -1,3 +1,8 @@
+/*
+ * File: EnergySlotService.cs
+ * Description: Smart Solar Microgrid Trading System - EnergySlotService.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Application.DTOs.EnergySlot;
 using SmartSolarMicrogrid.Application.Interfaces;
 using SmartSolarMicrogrid.Application.Validators;
@@ -7,7 +12,10 @@ using SmartSolarMicrogrid.Infrastructure.MongoDB.Repositories;
 namespace SmartSolarMicrogrid.Application.Services;
 public class EnergySlotService : IEnergySlotService {
     private readonly EnergySlotRepository _slots; private readonly MicrogridNodeRepository _nodes;
+    // Method: EnergySlotService - executes the relevant logic
+    // Method: EnergySlotService (Constructor) - initializes the instance
     public EnergySlotService(EnergySlotRepository slots,MicrogridNodeRepository nodes){_slots=slots;_nodes=nodes;}
+    // Method: CreateAsync - executes the relevant logic
     public async Task<EnergySlot> CreateAsync(CreateEnergySlotDto d){
         var node=await _nodes.GetByIdAsync(d.NodeId)??throw new KeyNotFoundException("Node not found.");
         if(node.Status!=NodeStatus.Active)throw new InvalidOperationException("Cannot create slot for inactive node.");
@@ -16,24 +24,29 @@ public class EnergySlotService : IEnergySlotService {
         var s=new EnergySlot{Id=Guid.NewGuid().ToString(),NodeId=d.NodeId,SlotDate=d.SlotDate.Date,StartTime=d.StartTime,EndTime=d.EndTime,EnergyAmountKwh=d.EnergyAmountKwh,AvailableCapacityKwh=d.EnergyAmountKwh};
         await _slots.InsertAsync(s);return s;
     }
+    // Method: GetAsync - executes the relevant logic
     public async Task<IReadOnlyList<EnergySlot>> GetAsync(string? nodeId=null,bool availableOnly=false){
         var x=await _slots.GetAllAsync();if(nodeId is not null)x=x.Where(s=>s.NodeId==nodeId).ToList();if(availableOnly)x=x.Where(s=>s.Status==SlotStatus.Available&&s.AvailableCapacityKwh>0).ToList();return x.OrderBy(s=>s.SlotDate).ThenBy(s=>s.StartTime).ToList();
     }
+    // Method: UpdateAsync - executes the relevant logic
     public async Task<EnergySlot> UpdateAsync(string id,UpdateEnergySlotDto d){
         var s=await _slots.GetByIdAsync(id)??throw new KeyNotFoundException("Slot not found.");
         var node=await _nodes.GetByIdAsync(s.NodeId);
         if(Enum.TryParse<SlotStatus>(d.Status,true,out var st)){
             if(node != null && node.Status != NodeStatus.Active && st == SlotStatus.Available)
+                // Method: InvalidOperationException - executes the relevant logic
                 throw new InvalidOperationException($"Cannot set slot to Available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
             s.Status=st;
         } else throw new ArgumentException("Invalid slot status.");
         s.SlotDate=d.SlotDate.Date;s.StartTime=d.StartTime;s.EndTime=d.EndTime;s.EnergyAmountKwh=d.EnergyAmountKwh;s.AvailableCapacityKwh=d.AvailableCapacityKwh;
         s.UpdatedAt=DateTime.UtcNow;await _slots.ReplaceAsync(id,s);return s;
     }
+    // Method: UpdateAvailabilityAsync - executes the relevant logic
     public async Task<EnergySlot> UpdateAvailabilityAsync(string id,double available){
         var s=await _slots.GetByIdAsync(id)??throw new KeyNotFoundException("Slot not found.");
         var node=await _nodes.GetByIdAsync(s.NodeId);
         if(node != null && node.Status != NodeStatus.Active && available > 0)
+            // Method: InvalidOperationException - executes the relevant logic
             throw new InvalidOperationException($"Cannot make slot available because microgrid node '{node.NodeName}' is deactivated ({node.AdminNote ?? "Inactive"}).");
         if(available<0 || available>s.EnergyAmountKwh)throw new ArgumentException("Invalid availability.");
         s.AvailableCapacityKwh=available;s.Status=available>0?SlotStatus.Available:SlotStatus.Unavailable;s.UpdatedAt=DateTime.UtcNow;await _slots.ReplaceAsync(id,s);return s;
