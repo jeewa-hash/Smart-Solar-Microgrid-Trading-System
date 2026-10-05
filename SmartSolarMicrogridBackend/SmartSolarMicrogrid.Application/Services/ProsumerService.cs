@@ -1,3 +1,8 @@
+/*
+ * File: ProsumerService.cs
+ * Description: Smart Solar Microgrid Trading System - ProsumerService.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Application.DTOs.Prosumer;
 using SmartSolarMicrogrid.Application.Interfaces;
 using SmartSolarMicrogrid.Application.Validators;
@@ -8,7 +13,10 @@ using SmartSolarMicrogrid.Infrastructure.Security;
 namespace SmartSolarMicrogrid.Application.Services;
 public class ProsumerService : IProsumerService {
     private readonly ProsumerRepository _pros; private readonly UserRepository _users; private readonly PasswordHasher _hasher; private readonly IOcrService _ocr;
+    // Method: ProsumerService - executes the relevant logic
+    // Method: ProsumerService (Constructor) - initializes the instance
     public ProsumerService(ProsumerRepository pros,UserRepository users,PasswordHasher hasher, IOcrService ocr){_pros=pros;_users=users;_hasher=hasher;_ocr=ocr;}
+    // Method: RegisterAsync - executes the relevant logic
     public async Task<Prosumer> RegisterAsync(CreateProsumerDto dto){
         Validation.Required(dto.NIC,"NIC"); Validation.NIC(dto.NIC); Validation.Required(dto.Username,"Username"); Validation.Required(dto.Password,"Password");
         if((await _pros.GetAllAsync()).Any(x=>x.NIC.Equals(dto.NIC,StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("NIC already exists.");
@@ -21,14 +29,19 @@ public class ProsumerService : IProsumerService {
         var p=new Prosumer{Id=Guid.NewGuid().ToString(),NIC=dto.NIC,FullName=dto.FullName,Email=dto.Email,Phone=dto.Phone,Address=dto.Address,UserId=user.Id,AccountStatus=UserStatus.Pending,IsDrpVerified=false,DrpVerificationRef="",NicFrontImageBase64=dto.NicFrontImageBase64,NicBackImageBase64=dto.NicBackImageBase64,ExtractedNicNumber=extractedNic};
         await _pros.InsertAsync(p); return p;
     }
+    // Method: GetByNicAsync - executes the relevant logic
     public async Task<Prosumer?> GetByNicAsync(string nic)=>(await _pros.GetAllAsync()).FirstOrDefault(x=>x.NIC.Equals(nic,StringComparison.OrdinalIgnoreCase));
+    // Method: UpdateAsync - executes the relevant logic
     public async Task<Prosumer> UpdateAsync(string nic,UpdateProsumerDto dto){
         var p=await GetByNicAsync(nic) ?? throw new KeyNotFoundException("Prosumer not found.");
         p.FullName=dto.FullName;p.Email=dto.Email;p.Phone=dto.Phone;p.Address=dto.Address;p.UpdatedAt=DateTime.UtcNow;
         await _pros.ReplaceAsync(p.Id,p);return p;
     }
+    // Method: RequestDeactivationAsync - executes the relevant logic
     public async Task<Prosumer> RequestDeactivationAsync(string nic)=>await SetStatusAsync(nic,"deactivate-request");
+    // Method: GetAllAsync - executes the relevant logic
     public async Task<IReadOnlyList<Prosumer>> GetAllAsync() => (await _pros.GetAllAsync()).OrderByDescending(p=>p.CreatedAt).ToList(); public async Task<IReadOnlyList<Prosumer>> GetPendingAsync()=>(await _pros.GetAllAsync()).Where(x=>x.AccountStatus==UserStatus.Pending).ToList();
+    // Method: SetStatusAsync - executes the relevant logic
     public async Task<Prosumer> SetStatusAsync(string nic,string action){
         var p=await GetByNicAsync(nic) ?? throw new KeyNotFoundException("Prosumer not found.");
         var user=await _users.GetByIdAsync(p.UserId) ?? throw new KeyNotFoundException("User not found.");
@@ -37,6 +50,7 @@ public class ProsumerService : IProsumerService {
         else if(action=="reactivate"){p.AccountStatus=UserStatus.Active;user.Status=UserStatus.Active;}
         else if(action=="reject"){p.AccountStatus=UserStatus.Rejected;user.Status=UserStatus.Rejected;}
         else if(action=="verify-nic"){p.IsDrpVerified=true;}
+        // Method: ArgumentException - executes the relevant logic
         else throw new ArgumentException("Invalid status action.");
         p.UpdatedAt=user.UpdatedAt=DateTime.UtcNow;await _pros.ReplaceAsync(p.Id,p);await _users.ReplaceAsync(user.Id,user);return p;
     }

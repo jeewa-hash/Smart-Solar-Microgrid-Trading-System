@@ -1,3 +1,8 @@
+/*
+ * File: Program.cs
+ * Description: Smart Solar Microgrid Trading System - Program.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.API;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

@@ -1,3 +1,8 @@
+/*
+ * File: MongoDbContext.cs
+ * Description: Smart Solar Microgrid Trading System - MongoDbContext.cs module
+ * Author: Admin
+ */
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MongoDB.Bson.Serialization.Conventions;
@@ -5,6 +10,8 @@ using SmartSolarMicrogrid.Domain.Entities;
 namespace SmartSolarMicrogrid.Infrastructure.MongoDB;
 public class MongoDbContext {
     private readonly IMongoDatabase _db;
+    // Method: MongoDbContext - executes the relevant logic
+    // Method: MongoDbContext (Constructor) - initializes the instance
     public MongoDbContext(IOptions<MongoDbSettings> options) {
         var pack = new ConventionPack { new IgnoreExtraElementsConvention(true) };
         ConventionRegistry.Register("IgnoreExtraElements", pack, t => true);

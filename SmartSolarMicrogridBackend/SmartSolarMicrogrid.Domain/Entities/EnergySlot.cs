@@ -1,3 +1,8 @@
+/*
+ * File: EnergySlot.cs
+ * Description: Smart Solar Microgrid Trading System - EnergySlot.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class EnergySlot {

@@ -1,3 +1,8 @@
+/*
+ * File: QRTransaction.cs
+ * Description: Smart Solar Microgrid Trading System - QRTransaction.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class QRTransaction {

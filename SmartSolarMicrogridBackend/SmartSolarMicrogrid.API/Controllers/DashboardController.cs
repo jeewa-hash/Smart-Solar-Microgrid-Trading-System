@@ -1,3 +1,8 @@
+/*
+ * File: DashboardController.cs
+ * Description: Smart Solar Microgrid Trading System - DashboardController.cs module
+ * Author: Admin
+ */
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSolarMicrogrid.Application.Interfaces;

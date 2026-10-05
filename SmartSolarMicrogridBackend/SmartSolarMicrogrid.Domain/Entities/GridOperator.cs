@@ -1,3 +1,8 @@
+/*
+ * File: GridOperator.cs
+ * Description: Smart Solar Microgrid Trading System - GridOperator.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class GridOperator {

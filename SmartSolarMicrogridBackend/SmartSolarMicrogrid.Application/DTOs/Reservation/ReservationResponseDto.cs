@@ -1,3 +1,8 @@
+/*
+ * File: ReservationResponseDto.cs
+ * Description: Smart Solar Microgrid Trading System - ReservationResponseDto.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Application.DTOs.Reservation;
 

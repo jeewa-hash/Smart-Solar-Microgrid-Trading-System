@@ -1,3 +1,8 @@
+/*
+ * File: EnergyReservation.cs
+ * Description: Smart Solar Microgrid Trading System - EnergyReservation.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class EnergyReservation {

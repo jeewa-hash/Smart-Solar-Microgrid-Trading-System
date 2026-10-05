@@ -1,3 +1,8 @@
+/*
+ * File: QRTransactionService.cs
+ * Description: Smart Solar Microgrid Trading System - QRTransactionService.cs module
+ * Author: Admin
+ */
 using System.Security.Cryptography;
 using System.Text;
 using SmartSolarMicrogrid.Application.DTOs.QR;
@@ -8,7 +13,10 @@ using SmartSolarMicrogrid.Infrastructure.MongoDB.Repositories;
 namespace SmartSolarMicrogrid.Application.Services;
 public class QRTransactionService : IQRTransactionService {
     private readonly QRTransactionRepository _qrs; private readonly EnergyReservationRepository _res;
+    // Method: QRTransactionService - executes the relevant logic
+    // Method: QRTransactionService (Constructor) - initializes the instance
     public QRTransactionService(QRTransactionRepository qrs,EnergyReservationRepository res){_qrs=qrs;_res=res;}
+    // Method: GenerateAsync - executes the relevant logic
     public async Task<QRTransaction> GenerateAsync(string reservationId){
         var r=await _res.GetByIdAsync(reservationId)??throw new KeyNotFoundException("Reservation not found.");
         if(r.Status!=ReservationStatus.Approved)throw new InvalidOperationException("QR can only be generated after reservation approval.");
@@ -19,6 +27,7 @@ public class QRTransactionService : IQRTransactionService {
         var q=new QRTransaction{Id=Guid.NewGuid().ToString(),ReservationId=reservationId,TransactionCode="TX-"+Random.Shared.Next(100000,999999),QRToken=token};
         await _qrs.InsertAsync(q);return q;
     }
+    // Method: VerifyAsync - executes the relevant logic
     public async Task<object> VerifyAsync(VerifyQRDto dto){
         var q=(await _qrs.GetAllAsync()).FirstOrDefault(x=>x.QRToken==dto.QRToken);
         if(q is null)throw new UnauthorizedAccessException("Invalid QR token.");
@@ -28,6 +37,7 @@ public class QRTransactionService : IQRTransactionService {
         q.Status=QRStatus.Verified;q.ScannedAt=DateTime.UtcNow;q.VerifiedAt=DateTime.UtcNow;await _qrs.ReplaceAsync(q.Id,q);
         return new {valid=true,q.TransactionCode,reservation=r};
     }
+    // Method: CompleteAsync - executes the relevant logic
     public async Task<object> CompleteAsync(VerifyQRDto dto){
         var q=(await _qrs.GetAllAsync()).FirstOrDefault(x=>x.QRToken==dto.QRToken);
         if(q is null)throw new UnauthorizedAccessException("Invalid QR token.");

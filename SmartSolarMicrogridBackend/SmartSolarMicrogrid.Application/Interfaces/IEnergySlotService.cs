@@ -1,1 +1,6 @@
+/*
+ * File: IEnergySlotService.cs
+ * Description: Smart Solar Microgrid Trading System - IEnergySlotService.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Application.DTOs.EnergySlot; using SmartSolarMicrogrid.Domain.Entities; namespace SmartSolarMicrogrid.Application.Interfaces; public interface IEnergySlotService { Task<EnergySlot> CreateAsync(CreateEnergySlotDto dto); Task<IReadOnlyList<EnergySlot>> GetAsync(string? nodeId=null,bool availableOnly=false); Task<EnergySlot> UpdateAsync(string id,UpdateEnergySlotDto dto); Task<EnergySlot> UpdateAvailabilityAsync(string id,double availableCapacityKwh); }

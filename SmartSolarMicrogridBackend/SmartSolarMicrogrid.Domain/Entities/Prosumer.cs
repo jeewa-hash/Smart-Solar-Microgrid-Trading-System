@@ -1,3 +1,8 @@
+/*
+ * File: Prosumer.cs
+ * Description: Smart Solar Microgrid Trading System - Prosumer.cs module
+ * Author: Admin
+ */
 using SmartSolarMicrogrid.Domain.Enums;
 namespace SmartSolarMicrogrid.Domain.Entities;
 public class Prosumer {

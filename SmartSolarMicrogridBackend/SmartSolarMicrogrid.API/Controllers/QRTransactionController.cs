@@ -1,3 +1,8 @@
+/*
+ * File: QRTransactionController.cs
+ * Description: Smart Solar Microgrid Trading System - QRTransactionController.cs module
+ * Author: Admin
+ */
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartSolarMicrogrid.Application.DTOs.QR;
