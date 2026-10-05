@@ -22,8 +22,12 @@ public final class SessionManager {
     }
 
     public String getBaseUrl() {
-        // Force return the new BASE_URL to override any old port saved in SharedPreferences
-        return BASE_URL;
+        String saved = sp.getString("base_url", BASE_URL);
+        if (saved != null && saved.contains(":5000")) {
+            saved = saved.replace(":5000", ":5053");
+            setBaseUrl(saved); // Update it so it's correct next time
+        }
+        return saved;
     }
 
     public void setBaseUrl(String url) {
@@ -49,6 +53,15 @@ public final class SessionManager {
 
     public void clear() {
         String savedUrl = getBaseUrl();
-        sp.edit().clear().putString("base_url", savedUrl).apply();
+        int savedTheme = getThemeMode();
+        sp.edit().clear().putString("base_url", savedUrl).putInt("theme_mode", savedTheme).apply();
+    }
+
+    public int getThemeMode() {
+        return sp.getInt("theme_mode", androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);
+    }
+
+    public void setThemeMode(int mode) {
+        sp.edit().putInt("theme_mode", mode).apply();
     }
 }

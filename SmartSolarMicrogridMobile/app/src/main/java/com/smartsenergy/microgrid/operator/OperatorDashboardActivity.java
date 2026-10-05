@@ -1,6 +1,6 @@
 package com.smartsenergy.microgrid.operator;
 
-import android.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
@@ -45,27 +45,28 @@ public class OperatorDashboardActivity extends BaseActivity {
         tvStatPending  = findViewById(R.id.tvStatPending);
         tvStatApproved = findViewById(R.id.tvStatApproved);
         tvStatToday    = findViewById(R.id.tvStatToday);
+        
+        TextView tvUsername = findViewById(R.id.tvUsername);
+        if (tvUsername != null) {
+            tvUsername.setText(session.username() + " · " + session.nic());
+        }
 
-        MaterialButton btnLogout = findViewById(R.id.btnLogout);
+        android.view.View btnLogout = findViewById(R.id.btnLogout);
         btnLogout.setOnClickListener(v -> doLogout());
 
-        buildActions();
+        // Map real features to new UI grid and scroll cards
+        findViewById(R.id.btnScanQr).setOnClickListener(v -> startScan());
+        findViewById(R.id.btnPendingBookings).setOnClickListener(v -> showReservations("Pending"));
+        findViewById(R.id.btnApprovedBookings).setOnClickListener(v -> showReservations("Approved"));
+        findViewById(R.id.btnAvailableSlots).setOnClickListener(v -> showSlots(true));
+        findViewById(R.id.btnUpdateSlot).setOnClickListener(v -> showSlots(false));
+
+        setupBottomNav(R.id.nav_home);
         loadDashboard();
     }
 
-    private void buildActions() {
-        contentLayout.removeAllViews();
-        addActionCard(contentLayout, "Scan Prosumer QR Code",
-                android.R.drawable.ic_menu_camera, v -> startScan());
-        addActionCard(contentLayout, "Pending Bookings",
-                android.R.drawable.ic_menu_agenda, v -> showReservations("Pending"));
-        addActionCard(contentLayout, "Approved Bookings",
-                android.R.drawable.ic_menu_sort_by_size, v -> showReservations("Approved"));
-        addActionCard(contentLayout, "Available Energy Slots",
-                android.R.drawable.ic_menu_info_details, v -> showSlots(true));
-        addActionCard(contentLayout, "Update Slot Availability",
-                android.R.drawable.ic_menu_edit, v -> showSlots(false));
-    }
+    // Build actions logic replaced by direct XML mapping.
+
 
     private void loadDashboard() {
         showLoading();
@@ -110,7 +111,7 @@ public class OperatorDashboardActivity extends BaseActivity {
                 JsonObject x   = r.body();
                 JsonObject res = x.has("reservation") && x.get("reservation").isJsonObject()
                         ? x.getAsJsonObject("reservation") : new JsonObject();
-                new AlertDialog.Builder(OperatorDashboardActivity.this)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(OperatorDashboardActivity.this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                         .setTitle("✅ QR Verified")
                         .setMessage("📋 Transaction: " + ApiUtils.str(x, "transactionCode")
                                 + "\n🔖 Reservation: " + ApiUtils.str(res, "reservationCode")
@@ -144,34 +145,13 @@ public class OperatorDashboardActivity extends BaseActivity {
 
     // ── Reservations ──────────────────────────────────────
     private void showReservations(String status) {
-        showLoading();
-        ApiClient.get().reservationsByStatus(status).enqueue(new Callback<JsonElement>() {
-            @Override
-            public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-                hideLoading();
-                if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
-                JsonArray a = r.body().getAsJsonArray();
-                if (a.size() == 0) { toast("No " + status.toLowerCase() + " reservations"); return; }
-
-                String[] labels = new String[a.size()];
-                for (int i = 0; i < a.size(); i++) {
-                    JsonObject x = a.get(i).getAsJsonObject();
-                    labels[i] = statusIcon(ApiUtils.str(x, "status"))
-                            + " " + ApiUtils.str(x, "reservationCode")
-                            + "  ⚡ " + fmt(ApiUtils.num(x, "energyAmountKwh")) + " kWh";
-                }
-                new AlertDialog.Builder(OperatorDashboardActivity.this)
-                        .setTitle(status + " Reservations")
-                        .setItems(labels, (d, w) -> reservationDetail(a.get(w).getAsJsonObject()))
-                        .show();
-            }
-            @Override
-            public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
-        });
+        Intent intent = new Intent(this, OperatorReservationsActivity.class);
+        intent.putExtra("status", status);
+        startActivity(intent);
     }
 
     private void reservationDetail(JsonObject x) {
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle(ApiUtils.str(x, "reservationCode"))
                 .setMessage("👤 Prosumer: " + ApiUtils.str(x, "prosumerId")
                         + "\n🗺 Node: " + ApiUtils.str(x, "nodeId")
@@ -211,34 +191,9 @@ public class OperatorDashboardActivity extends BaseActivity {
 
     // ── Energy Slots ──────────────────────────────────────
     private void showSlots(boolean availableOnly) {
-        showLoading();
-        ApiClient.get().operatorSlots("", availableOnly).enqueue(new Callback<JsonElement>() {
-            @Override
-            public void onResponse(Call<JsonElement> c, Response<JsonElement> r) {
-                hideLoading();
-                if (!r.isSuccessful() || r.body() == null) { toast(errorMsg(r)); return; }
-                JsonArray a = r.body().getAsJsonArray();
-                if (a.size() == 0) { toast("No slots found"); return; }
-
-                String[] labels = new String[a.size()];
-                for (int i = 0; i < a.size(); i++) {
-                    JsonObject x = a.get(i).getAsJsonObject();
-                    labels[i] = "📅 " + shortDate(ApiUtils.str(x, "slotDate"))
-                            + "  ⏱ " + ApiUtils.str(x, "startTime")
-                            + "  ⚡ " + fmt(ApiUtils.num(x, "availableCapacityKwh")) + " kWh";
-                }
-
-                String title = availableOnly ? "Available Slots" : "Select Slot to Update";
-                new AlertDialog.Builder(OperatorDashboardActivity.this)
-                        .setTitle(title)
-                        .setItems(labels, availableOnly ? null
-                                : (d, w) -> capacityDialog(a.get(w).getAsJsonObject()))
-                        .setPositiveButton("Close", null)
-                        .show();
-            }
-            @Override
-            public void onFailure(Call<JsonElement> c, Throwable t) { hideLoading(); fail(t); }
-        });
+        Intent intent = new Intent(this, OperatorSlotsActivity.class);
+        intent.putExtra("availableOnly", availableOnly);
+        startActivity(intent);
     }
 
     private void capacityDialog(JsonObject slot) {
@@ -246,11 +201,23 @@ public class OperatorDashboardActivity extends BaseActivity {
         et.setHint("New capacity (kWh)");
         et.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         et.setText(fmt(ApiUtils.num(slot, "availableCapacityKwh")));
+        et.setTextSize(14f);
+        et.setPadding(40, 36, 40, 36);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+        bg.setCornerRadius(24f);
+        bg.setStroke(2, android.graphics.Color.parseColor("#E0E0E0"));
+        et.setBackground(bg);
+        
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(64, 24, 64, 0);
+        box.addView(et);
 
-        new AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this, com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog_Centered)
                 .setTitle("Update Slot Availability")
                 .setMessage("Slot ID: " + ApiUtils.str(slot, "id"))
-                .setView(et)
+                .setView(box)
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", (d, w) -> {
                     try { updateSlot(ApiUtils.str(slot, "id"),

@@ -2,7 +2,7 @@ package com.smartsenergy.microgrid.maps;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -465,7 +465,7 @@ public class NearbyStationsActivity extends BaseActivity implements OnMapReadyCa
         details.append("🗺 Coordinates: ").append(String.format("%.4f, %.4f", lat, lng)).append("\n");
         details.append("🔖 Grid Status: ").append(status);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(NearbyStationsActivity.this)
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(NearbyStationsActivity.this)
                 .setTitle("🔴 " + name)
                 .setMessage(details.toString())
                 .setPositiveButton("OK", null);

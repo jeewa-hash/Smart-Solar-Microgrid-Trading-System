@@ -16,11 +16,14 @@ public final class ApiUtils {
     }
 
     public static String str(JsonObject o, String key) {
-        if (o == null || !o.has(key) || o.get(key).isJsonNull()) return "";
+        if (o == null) return "";
+        String capKey = key.substring(0, 1).toUpperCase() + key.substring(1);
+        String actualKey = o.has(key) ? key : (o.has(capKey) ? capKey : null);
+        if (actualKey == null || o.get(actualKey).isJsonNull()) return "";
         try {
-            return o.get(key).getAsString();
+            return o.get(actualKey).getAsString();
         } catch (Exception e) {
-            return o.get(key).toString();
+            return o.get(actualKey).toString();
         }
     }
 
